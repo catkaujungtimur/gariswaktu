@@ -4,847 +4,657 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GARIS WAKTU — Jadwal Langsir Kereta</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
 
-  :root {
-    --bg: #0a0c10;
-    --surface: #11141a;
-    --surface2: #181c24;
-    --border: #2a2f3d;
-    --accent: #f0b429;
-    --accent2: #00c2ff;
-    --text: #e8eaf0;
-    --text-dim: #6b7280;
-    --grid-line: #1e2330;
-    --row-height: 38px;
-    --header-height: 56px;
-    --hour-width: 64px;
-    --label-width: 80px;
-  }
+:root{
+  --bg:#0a0c10;--surface:#11141a;--surface2:#181c24;--border:#2a2f3d;
+  --accent:#f0b429;--accent2:#00c2ff;--red:#ef4444;--green:#22c55e;
+  --text:#e8eaf0;--dim:#6b7280;--grid:#1e2330;
+  --LW:80px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;}
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+/* ═══ HEADER ═══ */
+header{
+  height:52px;background:linear-gradient(135deg,#0f1218,#181c28);
+  border-bottom:2px solid var(--accent);padding:0 16px;
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+  box-shadow:0 4px 20px rgba(0,0,0,.5);z-index:200;position:relative;
+}
+.logo{width:28px;height:28px;background:var(--accent);
+  clip-path:polygon(0 20%,40% 0,100% 0,100% 80%,60% 100%,0 100%);
+  display:flex;align-items:center;justify-content:center;font-size:13px;}
+header h1{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;
+  letter-spacing:3px;color:var(--accent);text-transform:uppercase;}
+.htools{margin-left:auto;display:flex;gap:6px;align-items:center;}
+#clock{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--dim);margin-right:4px;}
+#conflictBadge{display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;
+  letter-spacing:1px;padding:3px 9px;border-radius:20px;cursor:pointer;}
+#conflictBadge.show{display:block;}
+.zoom-ctrl{display:flex;gap:3px;align-items:center;}
+.zoom-lbl{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);min-width:34px;text-align:center;}
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Barlow Condensed', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+/* ═══ APP SHELL ═══ */
+.app{display:flex;flex-direction:column;height:calc(100vh - 52px);}
 
-  /* ── TOP BAR ── */
-  header {
-    background: linear-gradient(135deg, #0f1218 0%, #181c28 100%);
-    border-bottom: 2px solid var(--accent);
-    padding: 14px 28px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-  }
-  .logo-icon {
-    width: 36px; height: 36px;
-    background: var(--accent);
-    clip-path: polygon(0 20%, 40% 0, 100% 0, 100% 80%, 60% 100%, 0 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-  }
-  header h1 {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: var(--accent);
-    text-transform: uppercase;
-  }
-  header p {
-    font-size: 13px;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-    margin-left: auto;
-    font-family: 'Share Tech Mono', monospace;
-  }
+/* ═══ TIMELINE — horizontal scroll only, vertical fills ═══ */
+.tl-wrap{
+  flex:1;min-height:0;
+  overflow-x:auto;overflow-y:hidden;
+  position:relative;
+}
+.tl-inner{
+  display:flex;flex-direction:column;
+  height:100%;
+  /* min-width set by JS */
+}
 
-  /* ── MAIN LAYOUT ── */
-  .main-wrap {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 68px);
-  }
+/* Hour header */
+.tl-head{
+  display:flex;height:42px;flex-shrink:0;
+  background:var(--surface);border-bottom:2px solid var(--border);
+  position:sticky;top:0;z-index:30;
+}
+.corner{
+  width:var(--LW);min-width:var(--LW);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;letter-spacing:2px;color:var(--accent);
+  border-right:2px solid var(--border);background:var(--surface2);text-transform:uppercase;
+}
+#hourCells{display:flex;}
+.hcell{
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);
+  border-right:1px solid var(--border);
+}
+.hcell.major{color:var(--text);border-right-color:var(--border);}
+.hcell.minor{color:var(--dim);border-right-color:var(--grid);}
 
-  /* ── TIMELINE AREA ── */
-  .timeline-section {
-    flex: 1;
-    overflow: auto;
-    position: relative;
-    background: var(--bg);
-  }
+/* Tracks — fills remaining height, split equally */
+.tracks-area{
+  flex:1;min-height:0;
+  position:relative;display:flex;flex-direction:column;
+}
+.track-row{
+  flex:1;min-height:0;
+  display:flex;border-bottom:1px solid var(--grid);position:relative;
+}
+.track-row.cuci .track-label{background:rgba(0,194,255,.07);color:var(--accent2);}
+.track-label{
+  width:var(--LW);min-width:var(--LW);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:12px;letter-spacing:1.5px;color:var(--accent);
+  background:var(--surface2);border-right:2px solid var(--border);
+  position:sticky;left:0;z-index:10;text-transform:uppercase;
+}
+.track-grid{position:relative;flex:1;display:flex;}
+.gcell{border-right:1px solid var(--grid);height:100%;flex-shrink:0;}
+.gcell.maj{border-right-color:var(--border);}
 
-  .timeline-container {
-    position: relative;
-    min-width: calc(var(--label-width) + var(--hour-width) * 25);
-  }
+/* ═══ BLOCKS & SVG ═══ */
+.ka-block{
+  position:absolute;top:3px;
+  border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;
+  cursor:pointer;pointer-events:all;
+  border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  transition:filter .15s,box-shadow .15s;z-index:5;
+}
+.ka-block:hover{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4),0 4px 14px rgba(0,0,0,.5);z-index:20;}
+.ka-block.conflict{box-shadow:0 0 0 2px var(--red),0 0 12px rgba(239,68,68,.4)!important;}
+.ka-block span{padding:0 5px;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;}
+#arrowSvg{position:absolute;top:0;left:0;pointer-events:none;z-index:8;overflow:visible;}
 
-  /* Header row with hours */
-  .time-header {
-    display: flex;
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    background: var(--surface);
-    border-bottom: 2px solid var(--border);
-    height: var(--header-height);
-  }
-  .time-header .corner {
-    width: var(--label-width);
-    min-width: var(--label-width);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: var(--accent);
-    border-right: 2px solid var(--border);
-    background: var(--surface2);
-    text-transform: uppercase;
-  }
-  .hour-cells {
-    display: flex;
-    flex: 1;
-  }
-  .hour-cell {
-    width: var(--hour-width);
-    min-width: var(--hour-width);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 14px;
-    color: var(--text-dim);
-    border-right: 1px solid var(--border);
-    position: relative;
-  }
-  .hour-cell:nth-child(even) { background: rgba(255,255,255,0.01); }
+/* ═══ TOOLTIP ═══ */
+.tooltip{
+  position:fixed;background:#1a1f2e;border:1px solid var(--accent);
+  padding:10px 14px;border-radius:6px;pointer-events:none;display:none;
+  z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:200px;font-size:13px;
+}
+.tooltip.show{display:block;}
+.tt-name{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:5px;}
+.tt-row{font-size:12px;color:var(--dim);margin-bottom:2px;}
+.tt-row b{color:var(--text);font-weight:600;}
+.tt-cf{color:var(--red);font-size:11px;margin-top:4px;font-weight:700;display:none;}
 
-  /* Track rows */
-  .tracks-area {
-    position: relative;
-  }
-  .track-row {
-    display: flex;
-    height: var(--row-height);
-    border-bottom: 1px solid var(--grid-line);
-    position: relative;
-  }
-  .track-row:nth-child(even) .track-grid { background: rgba(255,255,255,0.008); }
-  .track-row.cuci-row .track-label {
-    background: rgba(0,194,255,0.06);
-    color: var(--accent2);
-    border-right-color: rgba(0,194,255,0.3);
-  }
+/* ═══ CONFLICT PANEL ═══ */
+.cf-panel{
+  position:fixed;top:60px;right:14px;width:270px;
+  background:var(--surface);border:1px solid var(--red);border-radius:8px;
+  padding:12px;z-index:400;display:none;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+}
+.cf-panel.open{display:block;}
+.cf-title{font-size:11px;font-weight:700;letter-spacing:2px;color:var(--red);margin-bottom:8px;}
+.cf-item{font-size:12px;padding:4px 0;border-bottom:1px solid var(--grid);color:var(--dim);}
+.cf-item b{color:var(--text);}
 
-  .track-label {
-    width: var(--label-width);
-    min-width: var(--label-width);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 1.5px;
-    color: var(--accent);
-    background: var(--surface2);
-    border-right: 2px solid var(--border);
-    position: sticky;
-    left: 0;
-    z-index: 10;
-    text-transform: uppercase;
-  }
+/* ═══ BOTTOM PANEL ═══ */
+.panel{background:var(--surface);border-top:2px solid var(--border);padding:10px 16px;flex-shrink:0;}
+.panel-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.panel-title{font-size:10px;font-weight:700;letter-spacing:3px;color:var(--accent);text-transform:uppercase;}
+.panel-head::after{content:'';flex:1;height:1px;background:linear-gradient(to right,var(--border),transparent);}
+.form-row{display:flex;gap:7px;align-items:flex-end;flex-wrap:wrap;}
+.fg{display:flex;flex-direction:column;gap:3px;}
+label{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;}
+input[type=text],select{
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:'Barlow Condensed',sans-serif;font-size:14px;
+  padding:5px 8px;border-radius:4px;outline:none;transition:border-color .2s;
+}
+input:focus,select:focus{border-color:var(--accent);}
+input[type=color]{width:42px;height:30px;border:1px solid var(--border);border-radius:4px;
+  background:var(--surface2);cursor:pointer;padding:2px;}
+.ti{width:68px;background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  font-family:'Share Tech Mono',monospace;font-size:13px;padding:5px 7px;border-radius:4px;outline:none;transition:border-color .2s;}
+.ti:focus{border-color:var(--accent);}
+.seg{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 10px;display:flex;flex-direction:column;gap:5px;}
+.seg-lbl{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--dim);text-transform:uppercase;}
+select option{background:#1a1f2e;}
+.btn{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:1.5px;
+  text-transform:uppercase;border:none;cursor:pointer;padding:6px 14px;border-radius:4px;transition:all .2s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#0a0c10;}
+.btn-primary:hover{background:#ffca50;transform:translateY(-1px);}
+.btn-sm{padding:3px 8px;font-size:10px;}
+.btn-edit{background:transparent;border:1px solid var(--accent2);color:var(--accent2);}
+.btn-edit:hover{background:var(--accent2);color:#0a0c10;}
+.btn-del{background:transparent;border:1px solid var(--red);color:var(--red);}
+.btn-del:hover{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--dim);}
+.btn-ghost:hover{border-color:var(--text);color:var(--text);}
+.ka-list{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;max-height:60px;overflow-y:auto;}
+.ka-chip{display:flex;align-items:center;gap:4px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:20px;padding:2px 7px 2px 5px;font-size:11px;}
+.ka-chip.cf{border-color:var(--red);}
+.chip-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.chip-info{color:var(--dim);font-size:10px;}
+#btnBatal{display:none;}
 
-  .track-grid {
-    position: relative;
-    flex: 1;
-    display: flex;
-  }
-  .grid-cell {
-    width: var(--hour-width);
-    min-width: var(--hour-width);
-    border-right: 1px solid var(--grid-line);
-    height: 100%;
-    flex-shrink: 0;
-  }
-  .grid-cell:nth-child(even) { background: rgba(255,255,255,0.005); }
-
-  /* ── BLOCKS ── */
-  .block-layer {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    pointer-events: none;
-  }
-
-  .ka-block {
-    position: absolute;
-    top: 4px;
-    height: calc(var(--row-height) - 8px);
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    font-family: 'Barlow Condensed', sans-serif;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    cursor: pointer;
-    pointer-events: all;
-    transition: filter 0.15s, transform 0.15s;
-    z-index: 5;
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  }
-  .ka-block:hover {
-    filter: brightness(1.2);
-    transform: scaleY(1.08);
-    z-index: 15;
-  }
-  .ka-block span {
-    padding: 0 6px;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-    pointer-events: none;
-  }
-
-  /* ── ARROWS ── */
-  .arrow-svg {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 8;
-    overflow: visible;
-  }
-
-  /* ── TOOLTIP ── */
-  .tooltip {
-    position: fixed;
-    background: #1a1f2e;
-    border: 1px solid var(--accent);
-    padding: 10px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    pointer-events: none;
-    display: none;
-    z-index: 200;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    min-width: 180px;
-  }
-  .tooltip.show { display: block; }
-  .tooltip .tname {
-    font-size: 15px;
-    font-weight: 700;
-    margin-bottom: 6px;
-    color: var(--accent);
-  }
-  .tooltip .trow { font-size: 12px; color: var(--text-dim); margin-bottom: 2px; }
-  .tooltip .trow span { color: var(--text); font-weight: 600; }
-
-  /* ── BOTTOM PANEL ── */
-  .input-panel {
-    background: var(--surface);
-    border-top: 2px solid var(--border);
-    padding: 16px 24px;
-    flex-shrink: 0;
-  }
-
-  .panel-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    color: var(--accent);
-    text-transform: uppercase;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .panel-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(to right, var(--border), transparent);
-  }
-
-  .form-grid {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto auto auto auto auto auto auto;
-    gap: 10px;
-    align-items: end;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 1.5px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-  input[type=text], input[type=number], select {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
-    padding: 7px 10px;
-    border-radius: 4px;
-    outline: none;
-    transition: border-color 0.2s;
-    width: 100%;
-  }
-  input[type=text]:focus, input[type=number]:focus, select:focus {
-    border-color: var(--accent);
-  }
-  input[type=number] { width: 68px; }
-  input[type=color] {
-    width: 48px; height: 34px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    background: var(--surface2);
-    cursor: pointer;
-    padding: 2px;
-  }
-
-  .time-pair {
-    display: flex;
-    gap: 4px;
-    align-items: center;
-  }
-  .time-pair span {
-    font-size: 12px;
-    color: var(--text-dim);
-  }
-
-  .seg-block {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-  .seg-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-  }
-
-  .btn {
-    font-family: 'Rajdhani', sans-serif;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    border: none;
-    cursor: pointer;
-    padding: 8px 20px;
-    border-radius: 4px;
-    transition: all 0.2s;
-  }
-  .btn-primary {
-    background: var(--accent);
-    color: #0a0c10;
-  }
-  .btn-primary:hover { background: #ffca50; transform: translateY(-1px); }
-  .btn-danger {
-    background: transparent;
-    border: 1px solid #ef4444;
-    color: #ef4444;
-    font-size: 12px;
-    padding: 4px 10px;
-  }
-  .btn-danger:hover { background: #ef4444; color: white; }
-
-  /* KA LIST */
-  .ka-list {
-    margin-top: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .ka-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    padding: 4px 10px 4px 8px;
-    font-size: 12px;
-  }
-  .ka-chip-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  /* FORM ROW */
-  .form-row {
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-    flex-wrap: wrap;
-  }
-
-  select option { background: #1a1f2e; }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: var(--bg); }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3a3f50; }
-
-  .empty-hint {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 14px;
-    pointer-events: none;
-    letter-spacing: 1px;
-  }
-  .empty-hint .big { font-size: 32px; opacity: 0.15; margin-bottom: 8px; }
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+#emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;color:var(--dim);pointer-events:none;}
+#emptyHint .big{font-size:34px;opacity:.12;margin-bottom:5px;}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo-icon">🚂</div>
+  <div class="logo">🚂</div>
   <h1>Garis Waktu Langsir</h1>
-  <p id="clock">—</p>
+  <div class="htools">
+    <span id="clock">—</span>
+    <div id="conflictBadge" onclick="toggleCF()">⚠ KONFLIK</div>
+    <div class="zoom-ctrl">
+      <button class="btn btn-ghost btn-sm" onclick="zoom(-1)">−</button>
+      <span class="zoom-lbl" id="zoomLbl">60m</span>
+      <button class="btn btn-ghost btn-sm" onclick="zoom(1)">+</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷 PNG</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportJSON()">💾 Simpan</button>
+    <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+      📂 Buka<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
+    </label>
+  </div>
 </header>
 
-<div class="main-wrap">
+<div class="app">
   <!-- TIMELINE -->
-  <div class="timeline-section" id="timelineSection">
-    <div class="timeline-container" id="timelineContainer">
-      <!-- Hour header -->
-      <div class="time-header">
+  <div class="tl-wrap" id="tlWrap">
+    <div class="tl-inner" id="tlInner">
+      <div class="tl-head">
         <div class="corner">JALUR</div>
-        <div class="hour-cells" id="hourCells"></div>
+        <div id="hourCells"></div>
       </div>
-      <!-- Track rows -->
-      <div class="tracks-area" id="tracksArea"></div>
-      <!-- SVG arrows overlay -->
-      <svg class="arrow-svg" id="arrowSvg" xmlns="http://www.w3.org/2000/svg"></svg>
-      <!-- Empty hint -->
-      <div class="empty-hint" id="emptyHint">
-        <div class="big">⏱</div>
-        Input data KA di bawah untuk mulai
+      <div class="tracks-area" id="tracksArea">
+        <div id="emptyHint"><div class="big">⏱</div>Tambah KA di bawah</div>
       </div>
+      <svg id="arrowSvg"></svg>
     </div>
   </div>
 
-  <!-- INPUT PANEL -->
-  <div class="input-panel">
-    <div class="panel-title">Tambah Kereta Api</div>
-
-    <div class="form-row">
-      <!-- Nama KA -->
-      <div class="form-group" style="min-width:130px">
-        <label>Nama KA</label>
-        <input type="text" id="namaKA" placeholder="mis. 491/492" />
-      </div>
-
-      <!-- Warna -->
-      <div class="form-group">
-        <label>Warna</label>
-        <input type="color" id="warnaKA" value="#4ade80" />
-      </div>
-
-      <!-- SEGMEN 1: Jalur -->
-      <div class="seg-block">
-        <div class="seg-label">① Masuk Jalur</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Jalur</label>
-            <select id="seg1Jalur">
-              <option>I</option><option>II</option><option>III</option>
-              <option>IV</option><option>V</option><option>VI</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Dari</label>
-            <input type="number" id="seg1Dari" min="0" max="24" value="0" />
-          </div>
-          <div class="form-group">
-            <label>Sampai</label>
-            <input type="number" id="seg1Sampai" min="0" max="24" value="4" />
-          </div>
-        </div>
-      </div>
-
-      <!-- SEGMEN 2: Cuci -->
-      <div class="seg-block">
-        <div class="seg-label">② Jalur Cuci</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Cuci</label>
-            <select id="seg2Cuci">
-              <option>CUCI 1</option><option>CUCI 2</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Dari</label>
-            <input type="number" id="seg2Dari" min="0" max="24" value="4" />
-          </div>
-          <div class="form-group">
-            <label>Sampai</label>
-            <input type="number" id="seg2Sampai" min="0" max="24" value="6" />
-          </div>
-        </div>
-      </div>
-
-      <!-- SEGMEN 3: Jalur Kembali -->
-      <div class="seg-block">
-        <div class="seg-label">③ Kembali ke Jalur</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Jalur</label>
-            <select id="seg3Jalur">
-              <option>I</option><option>II</option><option>III</option>
-              <option>IV</option><option>V</option><option>VI</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Dari</label>
-            <input type="number" id="seg3Dari" min="0" max="24" value="6" />
-          </div>
-          <div class="form-group">
-            <label>Berangkat</label>
-            <input type="number" id="seg3Sampai" min="0" max="24" value="10" />
-          </div>
-        </div>
-      </div>
-
-      <button class="btn btn-primary" onclick="tambahKA()">＋ Tambah</button>
+  <!-- PANEL INPUT -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title" id="panelTitle">Tambah Kereta Api</div>
     </div>
+    <div class="form-row">
+      <div class="fg" style="min-width:110px;">
+        <label>Nama KA</label>
+        <input type="text" id="f_nama" placeholder="mis. 491/492"/>
+      </div>
+      <div class="fg">
+        <label>Warna</label>
+        <input type="color" id="f_warna" value="#4ade80"/>
+      </div>
 
-    <!-- KA List -->
+      <div class="seg">
+        <div class="seg-lbl">① Masuk Jalur</div>
+        <div class="form-row">
+          <div class="fg"><label>Jalur</label>
+            <select id="f_j1"><option>I</option><option>II</option><option>III</option><option>IV</option><option>V</option><option>VI</option></select>
+          </div>
+          <div class="fg"><label>Dari</label><input class="ti" id="f_s1d" type="text" placeholder="HH:MM" value="00:00"/></div>
+          <div class="fg"><label>Sampai</label><input class="ti" id="f_s1s" type="text" placeholder="HH:MM" value="04:00"/></div>
+        </div>
+      </div>
+
+      <div class="seg">
+        <div class="seg-lbl">② Jalur Cuci</div>
+        <div class="form-row">
+          <div class="fg"><label>Cuci</label>
+            <select id="f_cuci"><option>CUCI 1</option><option>CUCI 2</option></select>
+          </div>
+          <div class="fg"><label>Dari</label><input class="ti" id="f_s2d" type="text" placeholder="HH:MM" value="04:00"/></div>
+          <div class="fg"><label>Sampai</label><input class="ti" id="f_s2s" type="text" placeholder="HH:MM" value="06:00"/></div>
+        </div>
+      </div>
+
+      <div class="seg">
+        <div class="seg-lbl">③ Kembali ke Jalur</div>
+        <div class="form-row">
+          <div class="fg"><label>Jalur</label>
+            <select id="f_j3"><option>I</option><option>II</option><option>III</option><option>IV</option><option>V</option><option>VI</option></select>
+          </div>
+          <div class="fg"><label>Dari</label><input class="ti" id="f_s3d" type="text" placeholder="HH:MM" value="06:00"/></div>
+          <div class="fg"><label>Berangkat</label><input class="ti" id="f_s3s" type="text" placeholder="HH:MM" value="10:00"/></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <button class="btn btn-primary" id="btnSubmit" onclick="submitForm()">＋ Tambah</button>
+        <button class="btn btn-ghost btn-sm" id="btnBatal" onclick="cancelEdit()">Batal Edit</button>
+      </div>
+    </div>
     <div class="ka-list" id="kaList"></div>
   </div>
 </div>
 
+<!-- CONFLICT PANEL -->
+<div class="cf-panel" id="cfPanel">
+  <div class="cf-title">⚠ KONFLIK JALUR</div>
+  <div id="cfList"></div>
+</div>
+
 <!-- TOOLTIP -->
 <div class="tooltip" id="tooltip">
-  <div class="tname" id="ttName"></div>
-  <div class="trow">Jalur awal: <span id="ttJ1"></span></div>
-  <div class="trow">Cuci: <span id="ttCuci"></span></div>
-  <div class="trow">Jalur akhir: <span id="ttJ2"></span></div>
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-row">Jalur awal: <b id="ttJ1"></b></div>
+  <div class="tt-row">Cuci: <b id="ttCuci"></b></div>
+  <div class="tt-row">Jalur akhir: <b id="ttJ2"></b></div>
+  <div class="tt-cf" id="ttCf">⚠ Konflik di jalur ini!</div>
 </div>
 
 <script>
-const TRACKS = ['I','II','III','IV','V','VI','CUCI 1','CUCI 2'];
-const CUCI_TRACKS = ['CUCI 1','CUCI 2'];
-const JALUR_TRACKS = ['I','II','III','IV','V','VI'];
-const HOURS = 25; // 0..24
-const HOUR_W = 64; // px, must match CSS --hour-width
-const ROW_H = 38;
-const LABEL_W = 80;
+// ══════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════
+const TRACKS=['I','II','III','IV','V','VI','CUCI 1','CUCI 2'];
+const CUCI=['CUCI 1','CUCI 2'];
+const TOTAL=1440; // total minutes in a day
+const ZOOM=[60,30,15]; // minutes per column
+const COL_W=44; // px per column (fixed)
+const LW=80; // label width px
 
-let kaData = [];
+let kaData=[];
+let zoomIdx=0;
+let editId=null;
+let conflicts={};
 
-// ── INIT ──
-function buildHeader() {
-  const hc = document.getElementById('hourCells');
-  for (let h = 0; h < HOURS; h++) {
-    const d = document.createElement('div');
-    d.className = 'hour-cell';
-    d.textContent = h;
-    hc.appendChild(d);
-  }
+// ══════════════════════════════════════
+// TIME UTILS
+// ══════════════════════════════════════
+function parseT(s){
+  if(s==null)return null;
+  const p=String(s).split(':');
+  if(p.length===2){const h=+p[0],m=+p[1];if(!isNaN(h)&&!isNaN(m))return Math.max(0,Math.min(TOTAL,h*60+m));}
+  // legacy: bare number treated as hours
+  const n=+s;if(!isNaN(n)&&n<=24)return n*60;
+  return null;
+}
+function fmt(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');}
+function minX(mins){return LW+(mins/ZOOM[zoomIdx])*COL_W;}
+
+// ══════════════════════════════════════
+// ZOOM
+// ══════════════════════════════════════
+function zoom(d){
+  zoomIdx=Math.max(0,Math.min(ZOOM.length-1,zoomIdx+d));
+  document.getElementById('zoomLbl').textContent=ZOOM[zoomIdx]+'m';
+  rebuildGrid();renderAll();
 }
 
-function buildTracks() {
-  const area = document.getElementById('tracksArea');
-  area.innerHTML = '';
-  TRACKS.forEach(tr => {
-    const row = document.createElement('div');
-    row.className = 'track-row' + (CUCI_TRACKS.includes(tr) ? ' cuci-row' : '');
-    row.dataset.track = tr;
+// ══════════════════════════════════════
+// BUILD GRID (header + track rows)
+// ══════════════════════════════════════
+function rebuildGrid(){
+  const mpc=ZOOM[zoomIdx];
+  const cols=TOTAL/mpc;
+  const totalW=LW+cols*COL_W;
+  document.getElementById('tlInner').style.minWidth=totalW+'px';
 
-    const lbl = document.createElement('div');
-    lbl.className = 'track-label';
-    lbl.textContent = tr;
+  // Hour cells
+  const hc=document.getElementById('hourCells');hc.innerHTML='';
+  for(let c=0;c<cols;c++){
+    const mins=c*mpc;
+    const el=document.createElement('div');
+    el.className='hcell '+(mpc===60||mins%60===0?'major':'minor');
+    el.style.width=COL_W+'px';el.style.minWidth=COL_W+'px';
+    if(mpc===60) el.textContent=String(mins/60).padStart(2,'0');
+    else if(mins%60===0) el.textContent=String(mins/60).padStart(2,'0');
+    else el.textContent=':'+String(mins%60).padStart(2,'0');
+    hc.appendChild(el);
+  }
 
-    const grid = document.createElement('div');
-    grid.className = 'track-grid';
-    for (let h = 0; h < HOURS; h++) {
-      const c = document.createElement('div');
-      c.className = 'grid-cell';
-      grid.appendChild(c);
+  // Track rows
+  const area=document.getElementById('tracksArea');
+  area.innerHTML='<div id="emptyHint"><div class="big">⏱</div>Tambah KA di bawah</div>';
+  TRACKS.forEach(tr=>{
+    const row=document.createElement('div');
+    row.className='track-row'+(CUCI.includes(tr)?' cuci':'');
+    row.dataset.track=tr;
+    const lbl=document.createElement('div');
+    lbl.className='track-label';lbl.textContent=tr;
+    const grid=document.createElement('div');
+    grid.className='track-grid';
+    for(let c=0;c<cols;c++){
+      const mins=c*mpc;
+      const cell=document.createElement('div');
+      cell.className='gcell'+(mins%60===0?' maj':'');
+      cell.style.width=COL_W+'px';cell.style.minWidth=COL_W+'px';
+      grid.appendChild(cell);
     }
-
-    row.appendChild(lbl);
-    row.appendChild(grid);
+    row.appendChild(lbl);row.appendChild(grid);
     area.appendChild(row);
   });
 }
 
-function getTrackY(trackName) {
-  const idx = TRACKS.indexOf(trackName);
-  return idx * ROW_H;
+// ══════════════════════════════════════
+// CONFLICT DETECTION
+// ══════════════════════════════════════
+function detectConflicts(){
+  conflicts={};const cfList=[];
+  const byTrack={};TRACKS.forEach(t=>byTrack[t]=[]);
+  kaData.forEach(ka=>{
+    [{track:ka.seg1Jalur,from:ka.seg1Dari,to:ka.seg1Sampai},
+     {track:ka.seg2Cuci, from:ka.seg2Dari,to:ka.seg2Sampai},
+     {track:ka.seg3Jalur,from:ka.seg3Dari,to:ka.seg3Sampai}]
+    .forEach(s=>{if(byTrack[s.track])byTrack[s.track].push({kaId:ka.id,nama:ka.nama,from:s.from,to:s.to});});
+  });
+  TRACKS.forEach(track=>{
+    const segs=byTrack[track];
+    for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){
+      if(segs[i].from<segs[j].to&&segs[j].from<segs[i].to){
+        conflicts[segs[i].kaId]=true;conflicts[segs[j].kaId]=true;
+        cfList.push({track,a:segs[i].nama,b:segs[j].nama,
+          t:fmt(Math.max(segs[i].from,segs[j].from))+'–'+fmt(Math.min(segs[i].to,segs[j].to))});
+      }
+    }
+  });
+  document.getElementById('conflictBadge').classList.toggle('show',cfList.length>0);
+  document.getElementById('cfList').innerHTML=cfList.length
+    ? cfList.map(c=>`<div class="cf-item">Jalur <b>${c.track}</b>: <b>${c.a}</b> & <b>${c.b}</b><br><span style="font-size:10px;opacity:.7">${c.t}</span></div>`).join('')
+    : '<div class="cf-item" style="color:var(--green)">✓ Tidak ada konflik</div>';
 }
+function toggleCF(){document.getElementById('cfPanel').classList.toggle('open');}
 
-function timeToX(hour) {
-  return LABEL_W + hour * HOUR_W;
-}
+// ══════════════════════════════════════
+// RENDER BLOCKS + ARROWS
+// ══════════════════════════════════════
+function renderAll(){
+  detectConflicts();
+  document.querySelectorAll('.ka-block').forEach(e=>e.remove());
 
-function renderBlocks() {
-  // Remove existing blocks
-  document.querySelectorAll('.ka-block').forEach(el => el.remove());
-  document.getElementById('arrowSvg').innerHTML = '';
-  document.getElementById('emptyHint').style.display = kaData.length ? 'none' : 'block';
+  const area=document.getElementById('tracksArea');
+  const areaH=area.clientHeight||TRACKS.length*36;
+  const rowH=areaH/TRACKS.length;
+  const mpc=ZOOM[zoomIdx];
+  const cols=TOTAL/mpc;
+  const svgW=cols*COL_W;
 
-  const svg = document.getElementById('arrowSvg');
-  // defs for arrowhead
-  svg.innerHTML = `<defs>
-    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,0.85)"/>
-    </marker>
-  </defs>`;
+  const svg=document.getElementById('arrowSvg');
+  svg.setAttribute('width',svgW);svg.setAttribute('height',areaH);
+  svg.style.left=LW+'px';svg.style.width=svgW+'px';svg.style.height=areaH+'px';
+  svg.innerHTML=`<defs><marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+    <path d="M0,0 L7,3.5 L0,7 Z" fill="rgba(255,255,255,.9)"/></marker></defs>`;
 
-  const container = document.getElementById('timelineContainer');
+  document.getElementById('emptyHint').style.display=kaData.length?'none':'block';
 
-  kaData.forEach((ka, idx) => {
-    const segs = [
-      { track: ka.seg1Jalur, from: ka.seg1Dari, to: ka.seg1Sampai },
-      { track: ka.seg2Cuci,  from: ka.seg2Dari, to: ka.seg2Sampai },
-      { track: ka.seg3Jalur, from: ka.seg3Dari, to: ka.seg3Sampai },
+  kaData.forEach(ka=>{
+    const segs=[
+      {track:ka.seg1Jalur,from:ka.seg1Dari,to:ka.seg1Sampai},
+      {track:ka.seg2Cuci, from:ka.seg2Dari,to:ka.seg2Sampai},
+      {track:ka.seg3Jalur,from:ka.seg3Dari,to:ka.seg3Sampai},
     ];
+    const isCF=!!conflicts[ka.id];
 
-    segs.forEach((seg, si) => {
-      if (seg.from >= seg.to) return;
-      const trackIdx = TRACKS.indexOf(seg.track);
-      if (trackIdx === -1) return;
+    segs.forEach((seg,si)=>{
+      if(seg.from>=seg.to)return;
+      const ti=TRACKS.indexOf(seg.track);if(ti<0)return;
+      const x=minX(seg.from)-LW;
+      const w=(seg.to-seg.from)/mpc*COL_W;
+      const y=ti*rowH;
 
-      const x = timeToX(seg.from);
-      const w = (seg.to - seg.from) * HOUR_W;
-      const y = trackIdx * ROW_H;
+      const block=document.createElement('div');
+      block.className='ka-block'+(isCF?' conflict':'');
+      block.style.cssText=`left:${x}px;width:${w}px;top:${y+3}px;height:${rowH-6}px;background:${ka.warna};color:${contrast(ka.warna)};`;
+      const sp=document.createElement('span');sp.textContent=ka.nama;
+      block.appendChild(sp);
+      block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
+      block.addEventListener('mouseleave',hideTT);
+      block.addEventListener('dblclick',()=>startEdit(ka.id));
+      area.appendChild(block);
 
-      const block = document.createElement('div');
-      block.className = 'ka-block';
-      block.style.left = (x - LABEL_W) + 'px';
-      block.style.width = w + 'px';
-      block.style.top = (y + 4) + 'px';
-      block.style.background = ka.warna;
-      block.style.color = getContrastColor(ka.warna);
-
-      const label = document.createElement('span');
-      label.textContent = ka.nama;
-      block.appendChild(label);
-
-      // Tooltip
-      block.addEventListener('mousemove', e => showTooltip(e, ka));
-      block.addEventListener('mouseleave', hideTooltip);
-
-      // Append to tracksArea (position relative)
-      const tracksArea = document.getElementById('tracksArea');
-      block.style.position = 'absolute';
-      tracksArea.appendChild(block);
-
-      // Arrow to next segment
-      if (si < segs.length - 1) {
-        const next = segs[si + 1];
-        if (next.from >= next.to) return;
-        const nextTrackIdx = TRACKS.indexOf(next.track);
-        if (nextTrackIdx === -1) return;
-
-        // Arrow from right-center of this block to left-center of next block
-        const x1 = x + w; // right edge
-        const y1 = y + ROW_H / 2 + 1; // center (absolute within tracksArea)
-        const x2 = timeToX(next.from); // left edge of next
-        const y2 = nextTrackIdx * ROW_H + ROW_H / 2 + 1;
-
-        // Offset by LABEL_W for SVG coords (SVG covers tracksArea)
-        const sx1 = x1 - LABEL_W;
-        const sy1 = y1;
-        const sx2 = x2 - LABEL_W;
-        const sy2 = y2;
-
-        // Draw curved arrow
-        const midX = (sx1 + sx2) / 2;
-        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-        path.setAttribute('d', `M${sx1},${sy1} C${midX},${sy1} ${midX},${sy2} ${sx2},${sy2}`);
-        path.setAttribute('stroke', ka.warna);
-        path.setAttribute('stroke-width', '2');
-        path.setAttribute('fill', 'none');
-        path.setAttribute('opacity', '0.85');
-        path.setAttribute('marker-end', 'url(#arr)');
+      if(si<segs.length-1){
+        const nx=segs[si+1];if(nx.from>=nx.to)return;
+        const nti=TRACKS.indexOf(nx.track);if(nti<0)return;
+        const x1=x+w,y1=y+rowH/2;
+        const x2=minX(nx.from)-LW,y2=nti*rowH+rowH/2;
+        const mx=(x1+x2)/2;
+        const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d',`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+        path.setAttribute('stroke',ka.warna);path.setAttribute('stroke-width','2');
+        path.setAttribute('fill','none');path.setAttribute('opacity','0.9');
+        path.setAttribute('marker-end','url(#arr)');
         svg.appendChild(path);
       }
     });
   });
-
-  // Resize SVG to match tracks area
-  const tracksArea = document.getElementById('tracksArea');
-  const svgH = TRACKS.length * ROW_H;
-  const svgW = HOURS * HOUR_W;
-  svg.style.position = 'absolute';
-  svg.style.top = document.getElementById('time-header') + 'px';
-  svg.style.left = LABEL_W + 'px';
-  svg.setAttribute('width', svgW);
-  svg.setAttribute('height', svgH);
-  svg.style.width = svgW + 'px';
-  svg.style.height = svgH + 'px';
-  svg.style.top = '0';
-  svg.style.left = LABEL_W + 'px';
-  svg.style.pointerEvents = 'none';
+  renderChips();
 }
 
-function getContrastColor(hex) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  const lum = 0.299*r + 0.587*g + 0.114*b;
-  return lum > 140 ? '#0a0c10' : '#ffffff';
+function contrast(h){
+  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
+  return(0.299*r+0.587*g+0.114*b)>140?'#0a0c10':'#ffffff';
 }
 
-function tambahKA() {
-  const nama = document.getElementById('namaKA').value.trim();
-  if (!nama) { alert('Nama KA harus diisi!'); return; }
-
-  const s1d = +document.getElementById('seg1Dari').value;
-  const s1s = +document.getElementById('seg1Sampai').value;
-  const s2d = +document.getElementById('seg2Dari').value;
-  const s2s = +document.getElementById('seg2Sampai').value;
-  const s3d = +document.getElementById('seg3Dari').value;
-  const s3s = +document.getElementById('seg3Sampai').value;
-
-  if (s1d >= s1s) { alert('Seg 1: Jam masuk harus < jam keluar'); return; }
-  if (s2d >= s2s) { alert('Seg 2: Jam masuk harus < jam keluar'); return; }
-  if (s3d >= s3s) { alert('Seg 3: Jam masuk harus < jam berangkat'); return; }
-
-  const ka = {
-    id: Date.now(),
-    nama,
-    warna: document.getElementById('warnaKA').value,
-    seg1Jalur: document.getElementById('seg1Jalur').value,
-    seg1Dari: s1d, seg1Sampai: s1s,
-    seg2Cuci: document.getElementById('seg2Cuci').value,
-    seg2Dari: s2d, seg2Sampai: s2s,
-    seg3Jalur: document.getElementById('seg3Jalur').value,
-    seg3Dari: s3d, seg3Sampai: s3s,
-  };
-
-  kaData.push(ka);
-  renderBlocks();
-  renderKAList();
-
-  // Reset nama
-  document.getElementById('namaKA').value = '';
-}
-
-function hapusKA(id) {
-  kaData = kaData.filter(k => k.id !== id);
-  renderBlocks();
-  renderKAList();
-}
-
-function renderKAList() {
-  const list = document.getElementById('kaList');
-  list.innerHTML = '';
-  kaData.forEach(ka => {
-    const chip = document.createElement('div');
-    chip.className = 'ka-chip';
-    chip.innerHTML = `
-      <div class="ka-chip-dot" style="background:${ka.warna}"></div>
+// ══════════════════════════════════════
+// CHIP LIST
+// ══════════════════════════════════════
+function renderChips(){
+  const list=document.getElementById('kaList');list.innerHTML='';
+  kaData.forEach(ka=>{
+    const isCF=!!conflicts[ka.id];
+    const c=document.createElement('div');
+    c.className='ka-chip'+(isCF?' cf':'');
+    c.innerHTML=`<div class="chip-dot" style="background:${ka.warna}"></div>
       <span>${ka.nama}</span>
-      <span style="color:var(--text-dim);font-size:11px">
-        Jalur ${ka.seg1Jalur} ${ka.seg1Dari}–${ka.seg1Sampai}h →
-        ${ka.seg2Cuci} ${ka.seg2Dari}–${ka.seg2Sampai}h →
-        Jalur ${ka.seg3Jalur} ${ka.seg3Dari}–${ka.seg3Sampai}h
-      </span>
-      <button class="btn btn-danger" onclick="hapusKA(${ka.id})">✕</button>
-    `;
-    list.appendChild(chip);
+      <span class="chip-info">${fmt(ka.seg1Dari)}–${fmt(ka.seg1Sampai)}→${ka.seg2Cuci.replace('CUCI ','C')}→${fmt(ka.seg3Dari)}–${fmt(ka.seg3Sampai)}</span>
+      <button class="btn btn-edit btn-sm" onclick="startEdit(${ka.id})">✎</button>
+      <button class="btn btn-del btn-sm" onclick="hapus(${ka.id})">✕</button>`;
+    list.appendChild(c);
   });
 }
 
-function showTooltip(e, ka) {
-  const tt = document.getElementById('tooltip');
-  document.getElementById('ttName').textContent = ka.nama;
-  document.getElementById('ttJ1').textContent = `Jalur ${ka.seg1Jalur}  (${ka.seg1Dari}:00 – ${ka.seg1Sampai}:00)`;
-  document.getElementById('ttCuci').textContent = `${ka.seg2Cuci}  (${ka.seg2Dari}:00 – ${ka.seg2Sampai}:00)`;
-  document.getElementById('ttJ2').textContent = `Jalur ${ka.seg3Jalur}  (${ka.seg3Dari}:00 – ${ka.seg3Sampai}:00)`;
-  tt.style.left = (e.clientX + 14) + 'px';
-  tt.style.top  = (e.clientY - 10) + 'px';
+// ══════════════════════════════════════
+// FORM
+// ══════════════════════════════════════
+function readForm(){
+  const vals=['f_s1d','f_s1s','f_s2d','f_s2s','f_s3d','f_s3s'].map(id=>parseT(document.getElementById(id).value));
+  if(vals.some(v=>v===null)){alert('Format waktu harus HH:MM — contoh: 08:30');return null;}
+  const [s1d,s1s,s2d,s2s,s3d,s3s]=vals;
+  if(s1d>=s1s){alert('Segmen 1: Dari < Sampai');return null;}
+  if(s2d>=s2s){alert('Segmen 2: Dari < Sampai');return null;}
+  if(s3d>=s3s){alert('Segmen 3: Dari < Berangkat');return null;}
+  return{
+    nama:document.getElementById('f_nama').value.trim(),
+    warna:document.getElementById('f_warna').value,
+    seg1Jalur:document.getElementById('f_j1').value,seg1Dari:s1d,seg1Sampai:s1s,
+    seg2Cuci:document.getElementById('f_cuci').value,seg2Dari:s2d,seg2Sampai:s2s,
+    seg3Jalur:document.getElementById('f_j3').value,seg3Dari:s3d,seg3Sampai:s3s,
+  };
+}
+
+function fillForm(ka){
+  document.getElementById('f_nama').value=ka.nama;
+  document.getElementById('f_warna').value=ka.warna;
+  document.getElementById('f_j1').value=ka.seg1Jalur;
+  document.getElementById('f_s1d').value=fmt(ka.seg1Dari);
+  document.getElementById('f_s1s').value=fmt(ka.seg1Sampai);
+  document.getElementById('f_cuci').value=ka.seg2Cuci;
+  document.getElementById('f_s2d').value=fmt(ka.seg2Dari);
+  document.getElementById('f_s2s').value=fmt(ka.seg2Sampai);
+  document.getElementById('f_j3').value=ka.seg3Jalur;
+  document.getElementById('f_s3d').value=fmt(ka.seg3Dari);
+  document.getElementById('f_s3s').value=fmt(ka.seg3Sampai);
+}
+
+function submitForm(){
+  const d=readForm();if(!d)return;
+  if(!d.nama){alert('Nama KA harus diisi!');return;}
+  if(editId!==null){
+    const idx=kaData.findIndex(k=>k.id===editId);
+    if(idx>=0)kaData[idx]={...kaData[idx],...d};
+    cancelEdit();
+  }else{
+    kaData.push({id:Date.now(),...d});
+    document.getElementById('f_nama').value='';
+  }
+  renderAll();
+}
+
+function startEdit(id){
+  const ka=kaData.find(k=>k.id===id);if(!ka)return;
+  editId=id;fillForm(ka);
+  document.getElementById('panelTitle').textContent='Edit KA — '+ka.nama;
+  document.getElementById('btnSubmit').textContent='💾 Simpan';
+  document.getElementById('btnBatal').style.display='';
+}
+
+function cancelEdit(){
+  editId=null;
+  document.getElementById('panelTitle').textContent='Tambah Kereta Api';
+  document.getElementById('btnSubmit').textContent='＋ Tambah';
+  document.getElementById('btnBatal').style.display='none';
+  document.getElementById('f_nama').value='';
+}
+
+function hapus(id){
+  if(!confirm('Hapus KA ini?'))return;
+  kaData=kaData.filter(k=>k.id!==id);
+  if(editId===id)cancelEdit();
+  renderAll();
+}
+
+// ══════════════════════════════════════
+// TOOLTIP
+// ══════════════════════════════════════
+function showTT(e,ka,isCF){
+  const tt=document.getElementById('tooltip');
+  document.getElementById('ttName').textContent=ka.nama;
+  document.getElementById('ttJ1').textContent=`Jalur ${ka.seg1Jalur} (${fmt(ka.seg1Dari)}–${fmt(ka.seg1Sampai)})`;
+  document.getElementById('ttCuci').textContent=`${ka.seg2Cuci} (${fmt(ka.seg2Dari)}–${fmt(ka.seg2Sampai)})`;
+  document.getElementById('ttJ2').textContent=`Jalur ${ka.seg3Jalur} (${fmt(ka.seg3Dari)}–${fmt(ka.seg3Sampai)})`;
+  document.getElementById('ttCf').style.display=isCF?'block':'none';
+  tt.style.left=(e.clientX+16)+'px';tt.style.top=(e.clientY-14)+'px';
   tt.classList.add('show');
 }
-function hideTooltip() {
-  document.getElementById('tooltip').classList.remove('show');
+function hideTT(){document.getElementById('tooltip').classList.remove('show');}
+
+// ══════════════════════════════════════
+// SAVE / LOAD / EXPORT
+// ══════════════════════════════════════
+function exportJSON(){
+  const blob=new Blob([JSON.stringify({v:2,kaData},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
 }
 
-// Clock
-function updateClock() {
-  const now = new Date();
-  const h = String(now.getHours()).padStart(2,'0');
-  const m = String(now.getMinutes()).padStart(2,'0');
-  const s = String(now.getSeconds()).padStart(2,'0');
-  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const obj=JSON.parse(ev.target.result);
+      let raw=obj.kaData||obj;
+      // Migrate old hour-based format to minutes
+      kaData=raw.map(k=>({...k,
+        seg1Dari:parseT(k.seg1Dari)||k.seg1Dari*60,
+        seg1Sampai:parseT(k.seg1Sampai)||k.seg1Sampai*60,
+        seg2Dari:parseT(k.seg2Dari)||k.seg2Dari*60,
+        seg2Sampai:parseT(k.seg2Sampai)||k.seg2Sampai*60,
+        seg3Dari:parseT(k.seg3Dari)||k.seg3Dari*60,
+        seg3Sampai:parseT(k.seg3Sampai)||k.seg3Sampai*60,
+      }));
+      rebuildGrid();renderAll();
+    }catch{alert('File tidak valid!');}
+  };
+  r.readAsText(file);e.target.value='';
 }
 
-// ── DEMO DATA ──
-function loadDemo() {
-  kaData = [
-    {
-      id: 1, nama: '491/492', warna: '#a855f7',
-      seg1Jalur:'III', seg1Dari:0, seg1Sampai:7,
-      seg2Cuci:'CUCI 1', seg2Dari:7, seg2Sampai:9,
-      seg3Jalur:'III', seg3Dari:9, seg3Sampai:11,
-    },
-    {
-      id: 2, nama: '7045/7046', warna: '#ec4899',
-      seg1Jalur:'I', seg1Dari:2, seg1Sampai:8,
-      seg2Cuci:'CUCI 2', seg2Dari:8, seg2Sampai:10,
-      seg3Jalur:'II', seg3Dari:10, seg3Sampai:14,
-    },
-    {
-      id: 3, nama: '293/294', warna: '#22d3ee',
-      seg1Jalur:'IV', seg1Dari:1, seg1Sampai:5,
-      seg2Cuci:'CUCI 1', seg2Dari:5, seg2Sampai:7,
-      seg3Jalur:'V', seg3Dari:7, seg3Sampai:12,
-    },
-    {
-      id: 4, nama: '279', warna: '#f97316',
-      seg1Jalur:'VI', seg1Dari:4, seg1Sampai:10,
-      seg2Cuci:'CUCI 2', seg2Dari:10, seg2Sampai:13,
-      seg3Jalur:'I', seg3Dari:13, seg3Sampai:22,
-    },
-  ];
-  renderBlocks();
-  renderKAList();
+function exportPNG(){
+  const inner=document.getElementById('tlInner');
+  // Expand for full capture
+  const wrap=document.getElementById('tlWrap');
+  const origOF=wrap.style.overflow;
+  wrap.style.overflow='visible';
+  html2canvas(inner,{
+    backgroundColor:'#0a0c10',scale:2,useCORS:true,
+    width:inner.scrollWidth,height:inner.scrollHeight,
+  }).then(canvas=>{
+    wrap.style.overflow=origOF;
+    const a=document.createElement('a');
+    a.href=canvas.toDataURL('image/png');
+    a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.png';
+    a.click();
+  }).catch(()=>{wrap.style.overflow=origOF;alert('Export gagal.');});
 }
 
-// ── START ──
-buildHeader();
-buildTracks();
-loadDemo();
-setInterval(updateClock, 1000);
-updateClock();
+// ══════════════════════════════════════
+// RESIZE OBSERVER
+// ══════════════════════════════════════
+new ResizeObserver(()=>renderAll()).observe(document.getElementById('tracksArea'));
+
+// ══════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+},1000);
+
+// ══════════════════════════════════════
+// DEMO
+// ══════════════════════════════════════
+kaData=[
+  {id:1,nama:'491/492',warna:'#a855f7',seg1Jalur:'III',seg1Dari:0,seg1Sampai:420,seg2Cuci:'CUCI 1',seg2Dari:420,seg2Sampai:540,seg3Jalur:'III',seg3Dari:540,seg3Sampai:660},
+  {id:2,nama:'7045/7046',warna:'#ec4899',seg1Jalur:'I',seg1Dari:120,seg1Sampai:450,seg2Cuci:'CUCI 2',seg2Dari:450,seg2Sampai:600,seg3Jalur:'II',seg3Dari:600,seg3Sampai:840},
+  {id:3,nama:'293/294',warna:'#22d3ee',seg1Jalur:'IV',seg1Dari:60,seg1Sampai:300,seg2Cuci:'CUCI 1',seg2Dari:300,seg2Sampai:435,seg3Jalur:'V',seg3Dari:435,seg3Sampai:720},
+  {id:4,nama:'279',warna:'#f97316',seg1Jalur:'VI',seg1Dari:240,seg1Sampai:600,seg2Cuci:'CUCI 2',seg2Dari:600,seg2Sampai:780,seg3Jalur:'I',seg3Dari:780,seg3Sampai:1320},
+  {id:5,nama:'159/160',warna:'#facc15',seg1Jalur:'II',seg1Dari:330,seg1Sampai:540,seg2Cuci:'CUCI 1',seg2Dari:540,seg2Sampai:630,seg3Jalur:'IV',seg3Dari:630,seg3Sampai:960},
+];
+
+rebuildGrid();
+renderAll();
 </script>
 </body>
 </html>
