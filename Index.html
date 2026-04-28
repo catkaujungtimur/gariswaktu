@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GARIS WAKTU — Jadwal Langsir Kereta</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #11141a;
+    --surface2: #181c24;
+    --border: #2a2f3d;
+    --accent: #f0b429;
+    --accent2: #00c2ff;
+    --text: #e8eaf0;
+    --text-dim: #6b7280;
+    --grid-line: #1e2330;
+    --row-height: 38px;
+    --header-height: 56px;
+    --hour-width: 64px;
+    --label-width: 80px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    background: linear-gradient(135deg, #0f1218 0%, #181c28 100%);
+    border-bottom: 2px solid var(--accent);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    clip-path: polygon(0 20%, 40% 0, 100% 0, 100% 80%, 60% 100%, 0 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  header p {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-left: auto;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main-wrap {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 68px);
+  }
+
+  /* ── TIMELINE AREA ── */
+  .timeline-section {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: var(--bg);
+  }
+
+  .timeline-container {
+    position: relative;
+    min-width: calc(var(--label-width) + var(--hour-width) * 25);
+  }
+
+  /* Header row with hours */
+  .time-header {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    height: var(--header-height);
+  }
+  .time-header .corner {
+    width: var(--label-width);
+    min-width: var(--label-width);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent);
+    border-right: 2px solid var(--border);
+    background: var(--surface2);
+    text-transform: uppercase;
+  }
+  .hour-cells {
+    display: flex;
+    flex: 1;
+  }
+  .hour-cell {
+    width: var(--hour-width);
+    min-width: var(--hour-width);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--text-dim);
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+  .hour-cell:nth-child(even) { background: rgba(255,255,255,0.01); }
+
+  /* Track rows */
+  .tracks-area {
+    position: relative;
+  }
+  .track-row {
+    display: flex;
+    height: var(--row-height);
+    border-bottom: 1px solid var(--grid-line);
+    position: relative;
+  }
+  .track-row:nth-child(even) .track-grid { background: rgba(255,255,255,0.008); }
+  .track-row.cuci-row .track-label {
+    background: rgba(0,194,255,0.06);
+    color: var(--accent2);
+    border-right-color: rgba(0,194,255,0.3);
+  }
+
+  .track-label {
+    width: var(--label-width);
+    min-width: var(--label-width);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    background: var(--surface2);
+    border-right: 2px solid var(--border);
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    text-transform: uppercase;
+  }
+
+  .track-grid {
+    position: relative;
+    flex: 1;
+    display: flex;
+  }
+  .grid-cell {
+    width: var(--hour-width);
+    min-width: var(--hour-width);
+    border-right: 1px solid var(--grid-line);
+    height: 100%;
+    flex-shrink: 0;
+  }
+  .grid-cell:nth-child(even) { background: rgba(255,255,255,0.005); }
+
+  /* ── BLOCKS ── */
+  .block-layer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+
+  .ka-block {
+    position: absolute;
+    top: 4px;
+    height: calc(var(--row-height) - 8px);
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: pointer;
+    pointer-events: all;
+    transition: filter 0.15s, transform 0.15s;
+    z-index: 5;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .ka-block:hover {
+    filter: brightness(1.2);
+    transform: scaleY(1.08);
+    z-index: 15;
+  }
+  .ka-block span {
+    padding: 0 6px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    pointer-events: none;
+  }
+
+  /* ── ARROWS ── */
+  .arrow-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 8;
+    overflow: visible;
+  }
+
+  /* ── TOOLTIP ── */
+  .tooltip {
+    position: fixed;
+    background: #1a1f2e;
+    border: 1px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    pointer-events: none;
+    display: none;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    min-width: 180px;
+  }
+  .tooltip.show { display: block; }
+  .tooltip .tname {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+  .tooltip .trow { font-size: 12px; color: var(--text-dim); margin-bottom: 2px; }
+  .tooltip .trow span { color: var(--text); font-weight: 600; }
+
+  /* ── BOTTOM PANEL ── */
+  .input-panel {
+    background: var(--surface);
+    border-top: 2px solid var(--border);
+    padding: 16px 24px;
+    flex-shrink: 0;
+  }
+
+  .panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--border), transparent);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto auto auto auto auto auto auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  input[type=text], input[type=number], select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 14px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    border-color: var(--accent);
+  }
+  input[type=number] { width: 68px; }
+  input[type=color] {
+    width: 48px; height: 34px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--surface2);
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  .time-pair {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .time-pair span {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .seg-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .seg-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    padding: 8px 20px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0a0c10;
+  }
+  .btn-primary:hover { background: #ffca50; transform: translateY(-1px); }
+  .btn-danger {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    font-size: 12px;
+    padding: 4px 10px;
+  }
+  .btn-danger:hover { background: #ef4444; color: white; }
+
+  /* KA LIST */
+  .ka-list {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .ka-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px 4px 8px;
+    font-size: 12px;
+  }
+  .ka-chip-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* FORM ROW */
+  .form-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  select option { background: #1a1f2e; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3f50; }
+
+  .empty-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    pointer-events: none;
+    letter-spacing: 1px;
+  }
+  .empty-hint .big { font-size: 32px; opacity: 0.15; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🚂</div>
+  <h1>Garis Waktu Langsir</h1>
+  <p id="clock">—</p>
+</header>
+
+<div class="main-wrap">
+  <!-- TIMELINE -->
+  <div class="timeline-section" id="timelineSection">
+    <div class="timeline-container" id="timelineContainer">
+      <!-- Hour header -->
+      <div class="time-header">
+        <div class="corner">JALUR</div>
+        <div class="hour-cells" id="hourCells"></div>
+      </div>
+      <!-- Track rows -->
+      <div class="tracks-area" id="tracksArea"></div>
+      <!-- SVG arrows overlay -->
+      <svg class="arrow-svg" id="arrowSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+      <!-- Empty hint -->
+      <div class="empty-hint" id="emptyHint">
+        <div class="big">⏱</div>
+        Input data KA di bawah untuk mulai
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUT PANEL -->
+  <div class="input-panel">
+    <div class="panel-title">Tambah Kereta Api</div>
+
+    <div class="form-row">
+      <!-- Nama KA -->
+      <div class="form-group" style="min-width:130px">
+        <label>Nama KA</label>
+        <input type="text" id="namaKA" placeholder="mis. 491/492" />
+      </div>
+
+      <!-- Warna -->
+      <div class="form-group">
+        <label>Warna</label>
+        <input type="color" id="warnaKA" value="#4ade80" />
+      </div>
+
+      <!-- SEGMEN 1: Jalur -->
+      <div class="seg-block">
+        <div class="seg-label">① Masuk Jalur</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Jalur</label>
+            <select id="seg1Jalur">
+              <option>I</option><option>II</option><option>III</option>
+              <option>IV</option><option>V</option><option>VI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Dari</label>
+            <input type="number" id="seg1Dari" min="0" max="24" value="0" />
+          </div>
+          <div class="form-group">
+            <label>Sampai</label>
+            <input type="number" id="seg1Sampai" min="0" max="24" value="4" />
+          </div>
+        </div>
+      </div>
+
+      <!-- SEGMEN 2: Cuci -->
+      <div class="seg-block">
+        <div class="seg-label">② Jalur Cuci</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Cuci</label>
+            <select id="seg2Cuci">
+              <option>CUCI 1</option><option>CUCI 2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Dari</label>
+            <input type="number" id="seg2Dari" min="0" max="24" value="4" />
+          </div>
+          <div class="form-group">
+            <label>Sampai</label>
+            <input type="number" id="seg2Sampai" min="0" max="24" value="6" />
+          </div>
+        </div>
+      </div>
+
+      <!-- SEGMEN 3: Jalur Kembali -->
+      <div class="seg-block">
+        <div class="seg-label">③ Kembali ke Jalur</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Jalur</label>
+            <select id="seg3Jalur">
+              <option>I</option><option>II</option><option>III</option>
+              <option>IV</option><option>V</option><option>VI</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Dari</label>
+            <input type="number" id="seg3Dari" min="0" max="24" value="6" />
+          </div>
+          <div class="form-group">
+            <label>Berangkat</label>
+            <input type="number" id="seg3Sampai" min="0" max="24" value="10" />
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="tambahKA()">＋ Tambah</button>
+    </div>
+
+    <!-- KA List -->
+    <div class="ka-list" id="kaList"></div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip">
+  <div class="tname" id="ttName"></div>
+  <div class="trow">Jalur awal: <span id="ttJ1"></span></div>
+  <div class="trow">Cuci: <span id="ttCuci"></span></div>
+  <div class="trow">Jalur akhir: <span id="ttJ2"></span></div>
+</div>
+
+<script>
+const TRACKS = ['I','II','III','IV','V','VI','CUCI 1','CUCI 2'];
+const CUCI_TRACKS = ['CUCI 1','CUCI 2'];
+const JALUR_TRACKS = ['I','II','III','IV','V','VI'];
+const HOURS = 25; // 0..24
+const HOUR_W = 64; // px, must match CSS --hour-width
+const ROW_H = 38;
+const LABEL_W = 80;
+
+let kaData = [];
+
+// ── INIT ──
+function buildHeader() {
+  const hc = document.getElementById('hourCells');
+  for (let h = 0; h < HOURS; h++) {
+    const d = document.createElement('div');
+    d.className = 'hour-cell';
+    d.textContent = h;
+    hc.appendChild(d);
+  }
+}
+
+function buildTracks() {
+  const area = document.getElementById('tracksArea');
+  area.innerHTML = '';
+  TRACKS.forEach(tr => {
+    const row = document.createElement('div');
+    row.className = 'track-row' + (CUCI_TRACKS.includes(tr) ? ' cuci-row' : '');
+    row.dataset.track = tr;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'track-label';
+    lbl.textContent = tr;
+
+    const grid = document.createElement('div');
+    grid.className = 'track-grid';
+    for (let h = 0; h < HOURS; h++) {
+      const c = document.createElement('div');
+      c.className = 'grid-cell';
+      grid.appendChild(c);
+    }
+
+    row.appendChild(lbl);
+    row.appendChild(grid);
+    area.appendChild(row);
+  });
+}
+
+function getTrackY(trackName) {
+  const idx = TRACKS.indexOf(trackName);
+  return idx * ROW_H;
+}
+
+function timeToX(hour) {
+  return LABEL_W + hour * HOUR_W;
+}
+
+function renderBlocks() {
+  // Remove existing blocks
+  document.querySelectorAll('.ka-block').forEach(el => el.remove());
+  document.getElementById('arrowSvg').innerHTML = '';
+  document.getElementById('emptyHint').style.display = kaData.length ? 'none' : 'block';
+
+  const svg = document.getElementById('arrowSvg');
+  // defs for arrowhead
+  svg.innerHTML = `<defs>
+    <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="rgba(255,255,255,0.85)"/>
+    </marker>
+  </defs>`;
+
+  const container = document.getElementById('timelineContainer');
+
+  kaData.forEach((ka, idx) => {
+    const segs = [
+      { track: ka.seg1Jalur, from: ka.seg1Dari, to: ka.seg1Sampai },
+      { track: ka.seg2Cuci,  from: ka.seg2Dari, to: ka.seg2Sampai },
+      { track: ka.seg3Jalur, from: ka.seg3Dari, to: ka.seg3Sampai },
+    ];
+
+    segs.forEach((seg, si) => {
+      if (seg.from >= seg.to) return;
+      const trackIdx = TRACKS.indexOf(seg.track);
+      if (trackIdx === -1) return;
+
+      const x = timeToX(seg.from);
+      const w = (seg.to - seg.from) * HOUR_W;
+      const y = trackIdx * ROW_H;
+
+      const block = document.createElement('div');
+      block.className = 'ka-block';
+      block.style.left = (x - LABEL_W) + 'px';
+      block.style.width = w + 'px';
+      block.style.top = (y + 4) + 'px';
+      block.style.background = ka.warna;
+      block.style.color = getContrastColor(ka.warna);
+
+      const label = document.createElement('span');
+      label.textContent = ka.nama;
+      block.appendChild(label);
+
+      // Tooltip
+      block.addEventListener('mousemove', e => showTooltip(e, ka));
+      block.addEventListener('mouseleave', hideTooltip);
+
+      // Append to tracksArea (position relative)
+      const tracksArea = document.getElementById('tracksArea');
+      block.style.position = 'absolute';
+      tracksArea.appendChild(block);
+
+      // Arrow to next segment
+      if (si < segs.length - 1) {
+        const next = segs[si + 1];
+        if (next.from >= next.to) return;
+        const nextTrackIdx = TRACKS.indexOf(next.track);
+        if (nextTrackIdx === -1) return;
+
+        // Arrow from right-center of this block to left-center of next block
+        const x1 = x + w; // right edge
+        const y1 = y + ROW_H / 2 + 1; // center (absolute within tracksArea)
+        const x2 = timeToX(next.from); // left edge of next
+        const y2 = nextTrackIdx * ROW_H + ROW_H / 2 + 1;
+
+        // Offset by LABEL_W for SVG coords (SVG covers tracksArea)
+        const sx1 = x1 - LABEL_W;
+        const sy1 = y1;
+        const sx2 = x2 - LABEL_W;
+        const sy2 = y2;
+
+        // Draw curved arrow
+        const midX = (sx1 + sx2) / 2;
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M${sx1},${sy1} C${midX},${sy1} ${midX},${sy2} ${sx2},${sy2}`);
+        path.setAttribute('stroke', ka.warna);
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('opacity', '0.85');
+        path.setAttribute('marker-end', 'url(#arr)');
+        svg.appendChild(path);
+      }
+    });
+  });
+
+  // Resize SVG to match tracks area
+  const tracksArea = document.getElementById('tracksArea');
+  const svgH = TRACKS.length * ROW_H;
+  const svgW = HOURS * HOUR_W;
+  svg.style.position = 'absolute';
+  svg.style.top = document.getElementById('time-header') + 'px';
+  svg.style.left = LABEL_W + 'px';
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
+  svg.style.width = svgW + 'px';
+  svg.style.height = svgH + 'px';
+  svg.style.top = '0';
+  svg.style.left = LABEL_W + 'px';
+  svg.style.pointerEvents = 'none';
+}
+
+function getContrastColor(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  return lum > 140 ? '#0a0c10' : '#ffffff';
+}
+
+function tambahKA() {
+  const nama = document.getElementById('namaKA').value.trim();
+  if (!nama) { alert('Nama KA harus diisi!'); return; }
+
+  const s1d = +document.getElementById('seg1Dari').value;
+  const s1s = +document.getElementById('seg1Sampai').value;
+  const s2d = +document.getElementById('seg2Dari').value;
+  const s2s = +document.getElementById('seg2Sampai').value;
+  const s3d = +document.getElementById('seg3Dari').value;
+  const s3s = +document.getElementById('seg3Sampai').value;
+
+  if (s1d >= s1s) { alert('Seg 1: Jam masuk harus < jam keluar'); return; }
+  if (s2d >= s2s) { alert('Seg 2: Jam masuk harus < jam keluar'); return; }
+  if (s3d >= s3s) { alert('Seg 3: Jam masuk harus < jam berangkat'); return; }
+
+  const ka = {
+    id: Date.now(),
+    nama,
+    warna: document.getElementById('warnaKA').value,
+    seg1Jalur: document.getElementById('seg1Jalur').value,
+    seg1Dari: s1d, seg1Sampai: s1s,
+    seg2Cuci: document.getElementById('seg2Cuci').value,
+    seg2Dari: s2d, seg2Sampai: s2s,
+    seg3Jalur: document.getElementById('seg3Jalur').value,
+    seg3Dari: s3d, seg3Sampai: s3s,
+  };
+
+  kaData.push(ka);
+  renderBlocks();
+  renderKAList();
+
+  // Reset nama
+  document.getElementById('namaKA').value = '';
+}
+
+function hapusKA(id) {
+  kaData = kaData.filter(k => k.id !== id);
+  renderBlocks();
+  renderKAList();
+}
+
+function renderKAList() {
+  const list = document.getElementById('kaList');
+  list.innerHTML = '';
+  kaData.forEach(ka => {
+    const chip = document.createElement('div');
+    chip.className = 'ka-chip';
+    chip.innerHTML = `
+      <div class="ka-chip-dot" style="background:${ka.warna}"></div>
+      <span>${ka.nama}</span>
+      <span style="color:var(--text-dim);font-size:11px">
+        Jalur ${ka.seg1Jalur} ${ka.seg1Dari}–${ka.seg1Sampai}h →
+        ${ka.seg2Cuci} ${ka.seg2Dari}–${ka.seg2Sampai}h →
+        Jalur ${ka.seg3Jalur} ${ka.seg3Dari}–${ka.seg3Sampai}h
+      </span>
+      <button class="btn btn-danger" onclick="hapusKA(${ka.id})">✕</button>
+    `;
+    list.appendChild(chip);
+  });
+}
+
+function showTooltip(e, ka) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('ttName').textContent = ka.nama;
+  document.getElementById('ttJ1').textContent = `Jalur ${ka.seg1Jalur}  (${ka.seg1Dari}:00 – ${ka.seg1Sampai}:00)`;
+  document.getElementById('ttCuci').textContent = `${ka.seg2Cuci}  (${ka.seg2Dari}:00 – ${ka.seg2Sampai}:00)`;
+  document.getElementById('ttJ2').textContent = `Jalur ${ka.seg3Jalur}  (${ka.seg3Dari}:00 – ${ka.seg3Sampai}:00)`;
+  tt.style.left = (e.clientX + 14) + 'px';
+  tt.style.top  = (e.clientY - 10) + 'px';
+  tt.classList.add('show');
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+// Clock
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+
+// ── DEMO DATA ──
+function loadDemo() {
+  kaData = [
+    {
+      id: 1, nama: '491/492', warna: '#a855f7',
+      seg1Jalur:'III', seg1Dari:0, seg1Sampai:7,
+      seg2Cuci:'CUCI 1', seg2Dari:7, seg2Sampai:9,
+      seg3Jalur:'III', seg3Dari:9, seg3Sampai:11,
+    },
+    {
+      id: 2, nama: '7045/7046', warna: '#ec4899',
+      seg1Jalur:'I', seg1Dari:2, seg1Sampai:8,
+      seg2Cuci:'CUCI 2', seg2Dari:8, seg2Sampai:10,
+      seg3Jalur:'II', seg3Dari:10, seg3Sampai:14,
+    },
+    {
+      id: 3, nama: '293/294', warna: '#22d3ee',
+      seg1Jalur:'IV', seg1Dari:1, seg1Sampai:5,
+      seg2Cuci:'CUCI 1', seg2Dari:5, seg2Sampai:7,
+      seg3Jalur:'V', seg3Dari:7, seg3Sampai:12,
+    },
+    {
+      id: 4, nama: '279', warna: '#f97316',
+      seg1Jalur:'VI', seg1Dari:4, seg1Sampai:10,
+      seg2Cuci:'CUCI 2', seg2Dari:10, seg2Sampai:13,
+      seg3Jalur:'I', seg3Dari:13, seg3Sampai:22,
+    },
+  ];
+  renderBlocks();
+  renderKAList();
+}
+
+// ── START ──
+buildHeader();
+buildTracks();
+loadDemo();
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>
