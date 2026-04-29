@@ -139,7 +139,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 .ka-block.hidden-block{opacity:0.18;pointer-events:none;}
 
-/* ── Name label ── always white, dark pill, never clipped */
+/* ── Name label ── always at top z-index, never clipped by other blocks */
 .blk-name{
   position:absolute;
   left:50%;
@@ -152,11 +152,11 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   pointer-events:none;
   white-space:nowrap;
   overflow:visible;
-  z-index:22;
-  background:rgba(0,0,0,.5);
+  z-index:200;
+  background:rgba(0,0,0,.6);
   border-radius:4px;
   padding:2px 6px;
-  border:1px solid rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.25);
 }
 /* Floating label ABOVE block (narrow blocks, or top track) */
 .blk-name.above{
@@ -165,7 +165,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(8,10,18,.95);
   border-color:rgba(255,255,255,.35);
   box-shadow:0 2px 12px rgba(0,0,0,.8);
-  z-index:50;
+  z-index:300;
 }
 .blk-name.above::after{
   content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
@@ -189,9 +189,22 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   text-shadow:0 1px 3px rgba(0,0,0,.8);
   white-space:nowrap;pointer-events:none;z-index:6;
   bottom:3px;
+  /* staggered vertical so adjacent blocks don't overlap */
 }
-.blk-ts-l{right:calc(100% + 3px);text-align:right;}
-.blk-ts-r{left:calc(100% + 3px);text-align:left;}
+/* jam MASUK (kiri): tampil di ATAS tengah blok */
+.blk-ts-l{
+  right:calc(100% + 2px);
+  text-align:right;
+  bottom:auto;
+  top:3px;
+}
+/* jam KELUAR (kanan): tampil di BAWAH tengah blok */
+.blk-ts-r{
+  left:calc(100% + 2px);
+  text-align:left;
+  bottom:3px;
+  top:auto;
+}
 
 /* ══ SVG ══ */
 #arrowSvg{position:absolute;top:0;pointer-events:none;z-index:12;overflow:visible;}
@@ -353,6 +366,9 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   <h1>Garis Waktu Langsir</h1>
   <div class="htools">
     <span id="clock">—</span>
+    <button class="btn btn-ghost btn-sm" id="btnUndo" onclick="undo()" title="Undo" style="opacity:0.35;">↩</button>
+    <button class="btn btn-ghost btn-sm" id="btnRedo" onclick="redo()" title="Redo" style="opacity:0.35;">↪</button>
+    <button class="btn btn-ghost btn-sm" onclick="resetAll()" title="Reset semua data" style="color:var(--red);border-color:var(--red);">⊘</button>
     <div id="cfBadge" onclick="toggleCF()">⚠ KONFLIK</div>
     <div class="zoom-c">
       <button class="btn btn-ghost btn-icon" onclick="zoom(-1)">−</button>
@@ -441,12 +457,40 @@ let zoomIdx  = 0;
 let conflicts= {};
 let dragId   = null;
 
-// ══════════════════════════════════════════════════
-// DATA MODEL
-// Each KA has:
-//   id, nama, warna, hidden(bool),
-//   segments: [ { type:'jalur'|'cuci', track, dari, sampai }, ... ]
-// ══════════════════════════════════════════════════
+// ── UNDO/REDO STACK ──
+let undoStack = [];
+let redoStack = [];
+
+function snapshot(){
+  undoStack.push(JSON.stringify(kaData));
+  if(undoStack.length>50) undoStack.shift();
+  redoStack=[];
+  updateUndoRedoBtns();
+}
+function undo(){
+  if(!undoStack.length) return;
+  redoStack.push(JSON.stringify(kaData));
+  kaData=JSON.parse(undoStack.pop());
+  renderAll(); updateUndoRedoBtns();
+}
+function redo(){
+  if(!redoStack.length) return;
+  undoStack.push(JSON.stringify(kaData));
+  kaData=JSON.parse(redoStack.pop());
+  renderAll(); updateUndoRedoBtns();
+}
+function resetAll(){
+  if(!confirm('Reset semua data? Ini tidak bisa dibatalkan.')) return;
+  snapshot();
+  kaData=[];
+  renderAll();
+}
+function updateUndoRedoBtns(){
+  const u=document.getElementById('btnUndo');
+  const r=document.getElementById('btnRedo');
+  if(u) u.style.opacity=undoStack.length?'1':'0.35';
+  if(r) r.style.opacity=redoStack.length?'1':'0.35';
+}
 
 // ══════════════════════════════════════════════════
 // TIME UTILS
@@ -471,7 +515,7 @@ function durLabel(from,to){
   if(h>0) return h+'j';
   return m+'m';
 }
-function minsToGridX(mins){ return (mins/ZOOM[zoomIdx])*COL_W; }
+function minsToGridX(mins){ return Math.round((mins/ZOOM[zoomIdx])*COL_W); }
 
 // ══════════════════════════════════════════════════
 // AUTO-COLON TIME INPUT
@@ -482,6 +526,9 @@ function initTimeInput(el){
   el.setAttribute('inputmode','numeric');
   el.setAttribute('placeholder','HH:MM');
   el.setAttribute('maxlength','5');
+
+  // Select all text on focus so user can immediately overtype
+  el.addEventListener('focus', ()=>{ setTimeout(()=>el.select(),0); });
 
   el.addEventListener('keydown', e=>{
     // Allow: backspace, delete, arrows, tab
@@ -541,18 +588,23 @@ function zoom(d){
 // BUILD GRID
 // ══════════════════════════════════════════════════
 function rebuildGrid(){
-  const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
+  const mpc=ZOOM[zoomIdx], cols=Math.ceil(TOTAL/mpc);
   document.getElementById('tlInner').style.minWidth=(LW+cols*COL_W)+'px';
   const hc=document.getElementById('hourCells');
   hc.innerHTML='';
   for(let c=0;c<cols;c++){
     const mins=c*mpc;
     const el=document.createElement('div');
-    el.className='hcell '+(mpc===60||mins%60===0?'major':'minor');
+    const isHour=mins%60===0;
+    el.className='hcell '+(isHour?'major':'minor');
     el.style.width=COL_W+'px';el.style.minWidth=COL_W+'px';
-    el.textContent=(mpc===60)?String(mins/60).padStart(2,'0')
-      :(mins%60===0)?String(mins/60).padStart(2,'0')
-      :':'+String(mins%60).padStart(2,'0');
+    if(mpc===60){
+      el.textContent=String(Math.floor(mins/60)).padStart(2,'0');
+    } else if(isHour){
+      el.textContent=String(Math.floor(mins/60)).padStart(2,'0');
+    } else {
+      el.textContent=':'+String(mins%60).padStart(2,'0');
+    }
     hc.appendChild(el);
   }
   const area=document.getElementById('tracksArea');
@@ -621,10 +673,7 @@ function renderAll(){
   svg.setAttribute('width',svgW); svg.setAttribute('height',svgH);
   svg.style.cssText=`position:absolute;top:0;left:${LW}px;width:${svgW}px;height:${svgH}px;z-index:12;pointer-events:none;overflow:visible;`;
   if(svg.parentElement!==area) area.appendChild(svg);
-  svg.innerHTML=`<defs>
-    <marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
-      <path d="M0,1 L8,4.5 L0,8 Z" fill="rgba(255,255,255,.95)"/>
-    </marker></defs>`;
+  svg.innerHTML=``; // lines only, no arrowhead
 
   document.getElementById('emptyHint').style.display=kaData.length?'none':'block';
 
@@ -684,21 +733,18 @@ function renderAll(){
       block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
       block.addEventListener('mouseleave',hideTT);
       area.appendChild(block);
+      // Store reference to name label for post-render float check
+      block._nameLabel = nm;
+      block._blockW = w;
+      block._trackIdx = ti;
 
       // After render: check if name label needs to float above
       ;(function(b,label,blockWidth,trackIdx,rY){
         requestAnimationFrame(()=>{
           const lw=label.getBoundingClientRect().width;
           const needAbove = lw > blockWidth - 4;
-          // Also float above if it's the top-most track to avoid header overlap
-          // We check: top of block in viewport
-          const blockTopInViewport = b.getBoundingClientRect().top;
-          const tlScrollTop = document.getElementById('tlScroll').getBoundingClientRect().top;
-          // If block is in the first row, always float below instead (flip: use 'below' for row 0? 
-          // Actually: for row 0, floating ABOVE would go under the header. So for row 0 we float BELOW)
           if(needAbove || lw > blockWidth - 4){
             if(trackIdx===0){
-              // First row: place label BELOW the block instead
               label.style.top = 'calc(100% + 6px)';
               label.style.bottom = 'auto';
               label.style.transform = 'translateX(-50%)';
@@ -733,7 +779,7 @@ function renderAll(){
       path.setAttribute('stroke-width','2.5');
       path.setAttribute('fill','none');
       path.setAttribute('opacity', isHidden?'0.12':'0.92');
-      path.setAttribute('marker-end', isHidden?'':'url(#arr)');
+      // no marker-end — arrowhead removed per request
       svg.appendChild(path);
     }
   });
@@ -1013,6 +1059,7 @@ function saveEdit(id,form){
   if(!nama){alert('Nama KA harus diisi!');return;}
   const segs=readFormSegs(form.querySelector('.ef-segs-container'));
   if(!segs) return;
+  snapshot();
   const idx=kaData.findIndex(k=>k.id===id);
   if(idx>=0) kaData[idx]={...kaData[idx],
     nama, warna:form.querySelector('.ef-warna').value, segments:segs};
@@ -1021,6 +1068,7 @@ function saveEdit(id,form){
 
 function hapus(id){
   if(!confirm('Hapus KA ini?')) return;
+  snapshot();
   kaData=kaData.filter(k=>k.id!==id);
   renderAll();
 }
@@ -1094,6 +1142,7 @@ function doAdd(){
   if(!segsEl) return;
   const segs=readFormSegs(segsEl);
   if(!segs) return;
+  snapshot();
   kaData.push({id:Date.now(),nama,warna,hidden:false,segments:segs});
   addFormOpen=false;
   document.getElementById('addForm').classList.remove('open');
@@ -1204,35 +1253,9 @@ setInterval(()=>{
 new ResizeObserver(()=>renderAll()).observe(document.getElementById('tracksArea'));
 
 // ══════════════════════════════════════════════════
-// DEMO DATA
+// INIT — mulai kosong, user buat sendiri
 // ══════════════════════════════════════════════════
-kaData=[
-  {id:1,nama:'491/492',warna:'#a855f7',hidden:false,segments:[
-    {track:'III',dari:0,sampai:420},
-    {track:'CUCI 1',dari:420,sampai:540},
-    {track:'III',dari:540,sampai:660}]},
-  {id:2,nama:'293/294',warna:'#22d3ee',hidden:false,segments:[
-    {track:'IV',dari:60,sampai:300},
-    {track:'V',dari:300,sampai:375},        // ← stabling dulu ke jalur V
-    {track:'CUCI 1',dari:375,sampai:495},
-    {track:'V',dari:495,sampai:720}]},
-  {id:3,nama:'7045/7046',warna:'#ec4899',hidden:false,segments:[
-    {track:'I',dari:120,sampai:450},
-    {track:'CUCI 2',dari:450,sampai:600},
-    {track:'II',dari:600,sampai:840}]},
-  {id:4,nama:'159/160',warna:'#facc15',hidden:false,segments:[
-    {track:'II',dari:330,sampai:540},
-    {track:'CUCI 1',dari:540,sampai:630},
-    {track:'IV',dari:630,sampai:960}]},
-  {id:5,nama:'279',warna:'#f97316',hidden:false,segments:[
-    {track:'VI',dari:240,sampai:600},
-    {track:'CUCI 2',dari:600,sampai:780},
-    {track:'I',dari:780,sampai:1320}]},
-  {id:6,nama:'211F/212F',warna:'#818cf8',hidden:false,segments:[
-    {track:'II',dari:195,sampai:205},
-    {track:'CUCI 2',dari:205,sampai:385},
-    {track:'III',dari:385,sampai:500}]},
-];
+kaData=[];
 
 rebuildGrid();
 renderAll();
