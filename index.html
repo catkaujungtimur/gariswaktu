@@ -125,27 +125,56 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;
 .ka-block{
   position:absolute;
   border-radius:4px;
-  overflow:visible; /* allow timestamps outside */
+  overflow:visible; /* allow name label + timestamps to float outside */
   cursor:pointer;pointer-events:all;
   border:1.5px solid rgba(255,255,255,.22);
   box-shadow:0 2px 10px rgba(0,0,0,.5);
   transition:filter .15s,box-shadow .15s;z-index:5;
 }
 .ka-block:hover{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4);z-index:20;}
+.ka-block:hover .blk-name{z-index:50;}
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 
-/* KA name — upper portion of block */
+/* KA name — always fully visible pill, centered on block mid-x.
+   For wide blocks  → sits inside the block (top 35%).
+   For narrow blocks → JS positions it ABOVE the block row (see renderAll).
+   Either way: never clipped, never ellipsis. */
 .blk-name{
   position:absolute;
-  left:0;right:0;
-  top:25%; /* shifted up — stays in upper half */
-  transform:translateY(-50%);
+  left:50%;
+  transform:translateX(-50%) translateY(-50%);
+  top:35%;
   text-align:center;
-  font-size:11px;font-weight:700;
-  text-shadow:0 1px 3px rgba(0,0,0,.6);
+  font-size:11px;font-weight:700;letter-spacing:0.2px;
   pointer-events:none;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  padding:0 4px;
+  white-space:nowrap;
+  overflow:visible;
+  z-index:22;
+  /* dark pill for readability on any background */
+  background:rgba(0,0,0,.45);
+  border-radius:4px;
+  padding:2px 6px;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 1px 4px rgba(0,0,0,.5);
+  text-shadow:0 1px 3px rgba(0,0,0,.7);
+}
+/* When the block is very narrow, JS adds class .blk-name-above
+   and repositions the label above the block row */
+.blk-name.blk-name-above{
+  top:auto;
+  bottom:calc(100% + 4px); /* above the block */
+  transform:translateX(-50%);
+  background:rgba(15,18,28,.9);
+  border-color:rgba(255,255,255,.3);
+  box-shadow:0 2px 10px rgba(0,0,0,.7);
+}
+/* tiny triangle pointer below the floating label */
+.blk-name.blk-name-above::after{
+  content:'';
+  position:absolute;
+  top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;
+  border-top-color:rgba(15,18,28,.9);
 }
 
 /* Duration label — INSIDE the row but BELOW the block, in the reserved bottom zone */
@@ -617,11 +646,28 @@ function renderAll() {
         `color:${contrast(ka.warna)}`,
       ].join(';');
 
-      // Name label — upper portion of block
+      // Name label — centered; JS will move above if block is too narrow
       const nm = document.createElement('span');
       nm.className = 'blk-name';
       nm.textContent = ka.nama;
       block.appendChild(nm);
+
+      // After appending, measure whether the label fits inside the block.
+      // We do this via requestAnimationFrame so the browser has laid it out.
+      // Store a reference so the rAF closure can check.
+      (function(b, label, blockWidth){
+        requestAnimationFrame(() => {
+          // labelWidth = rendered width of the text pill
+          const lw = label.getBoundingClientRect().width;
+          // If the label is wider than the block (minus small padding), float it above
+          if (lw > blockWidth - 4) {
+            label.classList.add('blk-name-above');
+            // Also set color to the block's color for the triangle
+            label.style.setProperty('--ka-color', b.style.background);
+            label.style.color = b.style.color; // keep text contrast
+          }
+        });
+      })(block, nm, w);
 
       // Duration — below the block (in reserved bottom zone of the row)
       const dur = document.createElement('span');
@@ -899,31 +945,116 @@ function doAdd() {
 // SAVE / LOAD / EXPORT
 // ══════════════════════════════════════════
 function exportJSON() {
-  const blob = new Blob([JSON.stringify({ v: 3, kaData }, null, 2)], { type: 'application/json' });
+  // Always serialize times as "HH:MM" strings for reliable round-trip
+  const exportData = kaData.map(k => ({
+    id:         k.id,
+    nama:       k.nama,
+    warna:      k.warna,
+    seg1Jalur:  k.seg1Jalur,
+    seg1Dari:   fmt(k.seg1Dari),
+    seg1Sampai: fmt(k.seg1Sampai),
+    seg2Cuci:   k.seg2Cuci,
+    seg2Dari:   fmt(k.seg2Dari),
+    seg2Sampai: fmt(k.seg2Sampai),
+    seg3Jalur:  k.seg3Jalur,
+    seg3Dari:   fmt(k.seg3Dari),
+    seg3Sampai: fmt(k.seg3Sampai),
+  }));
+  const payload = { v: 4, savedAt: new Date().toISOString(), kaData: exportData };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'garis-waktu-' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
+  // brief visual confirmation in the badge area
+  showSaveConfirm();
 }
+
+function showSaveConfirm() {
+  const btn = document.querySelector('[onclick="exportJSON()"]');
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.textContent = '✓ Tersimpan!';
+  btn.style.color = 'var(--grn)';
+  setTimeout(() => { btn.textContent = orig; btn.style.color = ''; }, 2000);
+}
+
 function importJSON(e) {
-  const file = e.target.files[0]; if (!file) return;
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = ''; // reset so same file can be re-opened
+
   const r = new FileReader();
+  r.onerror = () => alert('Gagal membaca file.');
   r.onload = ev => {
-    try {
-      const obj = JSON.parse(ev.target.result);
-      let raw = obj.kaData || obj;
-      kaData = raw.map(k => ({ ...k,
-        seg1Dari:   parseT(k.seg1Dari)   ?? k.seg1Dari,
-        seg1Sampai: parseT(k.seg1Sampai) ?? k.seg1Sampai,
-        seg2Dari:   parseT(k.seg2Dari)   ?? k.seg2Dari,
-        seg2Sampai: parseT(k.seg2Sampai) ?? k.seg2Sampai,
-        seg3Dari:   parseT(k.seg3Dari)   ?? k.seg3Dari,
-        seg3Sampai: parseT(k.seg3Sampai) ?? k.seg3Sampai,
-      }));
-      rebuildGrid(); renderAll();
-    } catch { alert('File tidak valid!'); }
+    let obj;
+    try { obj = JSON.parse(ev.target.result); }
+    catch { alert('File bukan JSON yang valid.'); return; }
+
+    // Accept both {v, kaData:[...]} and plain array
+    const raw = Array.isArray(obj) ? obj
+              : Array.isArray(obj.kaData) ? obj.kaData
+              : null;
+    if (!raw || raw.length === 0) {
+      alert('File tidak berisi data KA yang dapat dibaca.'); return;
+    }
+
+    // Robust time converter: handles "HH:MM" strings, minute-integers, hour-floats
+    const toMins = v => {
+      if (v == null) return 0;
+      if (typeof v === 'string') {
+        const p = parseT(v);
+        return p !== null ? p : 0;
+      }
+      if (typeof v === 'number') {
+        // heuristic: if ≤ 24 it was saved as hours (old format)
+        return v <= 24 ? Math.round(v * 60) : Math.round(v);
+      }
+      return 0;
+    };
+
+    const validJalur = new Set(['I','II','III','IV','V','VI']);
+    const validCuci  = new Set(['CUCI 1','CUCI 2']);
+
+    const loaded = raw.map((k, i) => ({
+      id:         k.id        || (Date.now() + i),
+      nama:       (k.nama     || '?').toString(),
+      warna:      /^#[0-9a-fA-F]{6}$/.test(k.warna) ? k.warna : '#888888',
+      seg1Jalur:  validJalur.has(k.seg1Jalur) ? k.seg1Jalur : 'I',
+      seg1Dari:   toMins(k.seg1Dari),
+      seg1Sampai: toMins(k.seg1Sampai),
+      seg2Cuci:   validCuci.has(k.seg2Cuci) ? k.seg2Cuci : 'CUCI 1',
+      seg2Dari:   toMins(k.seg2Dari),
+      seg2Sampai: toMins(k.seg2Sampai),
+      seg3Jalur:  validJalur.has(k.seg3Jalur) ? k.seg3Jalur : 'I',
+      seg3Dari:   toMins(k.seg3Dari),
+      seg3Sampai: toMins(k.seg3Sampai),
+    }));
+
+    // Sanity check: at least one segment must have valid duration
+    const valid = loaded.filter(k =>
+      k.seg1Dari < k.seg1Sampai ||
+      k.seg2Dari < k.seg2Sampai ||
+      k.seg3Dari < k.seg3Sampai
+    );
+    if (valid.length === 0) {
+      alert('Semua data KA di file tampak tidak valid (waktu salah).'); return;
+    }
+
+    kaData = loaded;
+    rebuildGrid();
+    renderAll();
+
+    // confirmation
+    const lbl = document.querySelector('[onchange="importJSON(event)"]')?.parentElement;
+    if (lbl) {
+      const orig = lbl.childNodes[0]?.textContent || '📂 Buka';
+      lbl.childNodes[0].textContent = `✓ ${kaData.length} KA`;
+      lbl.style.color = 'var(--grn)';
+      setTimeout(() => { lbl.childNodes[0].textContent = orig; lbl.style.color = ''; }, 2500);
+    }
   };
-  r.readAsText(file); e.target.value = '';
+  r.readAsText(file);
 }
 function exportPNG() {
   const inner  = document.getElementById('tlInner');
