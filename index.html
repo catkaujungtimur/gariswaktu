@@ -444,7 +444,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
     </div>
     <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON()">💾</button>
-    <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+    <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
       📂<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
     </label>
   </div>
@@ -1287,77 +1287,80 @@ function exportJSON(){
 
 function importJSON(e){
   const file=e.target.files[0]; if(!file) return;
-  e.target.value='';
+  e.target.value=''; // allow re-selecting same file
   const r=new FileReader();
   r.onerror=()=>alert('Gagal membaca file.');
   r.onload=ev=>{
     let obj;
-    try{obj=JSON.parse(ev.target.result);}
-    catch{alert('File bukan JSON yang valid.');return;}
+    try{ obj=JSON.parse(ev.target.result); }
+    catch(err){ alert('File bukan JSON yang valid.\n'+err); return; }
 
-    // Support: array at root, or {kaData:[...]}, or {v:N, kaData:[...]}
-    const raw=Array.isArray(obj)? obj
-             : Array.isArray(obj.kaData)? obj.kaData
-             : null;
-    if(!raw||!raw.length){alert('File tidak berisi data KA yang valid.');return;}
+    // Support: plain array, {kaData:[...]}, {v:N, kaData:[...]}
+    const raw = Array.isArray(obj)       ? obj
+              : Array.isArray(obj.kaData) ? obj.kaData
+              : null;
+    if(!raw||!raw.length){ alert('File tidak berisi array kaData.'); return; }
 
     const toMins=v=>{
       if(v===null||v===undefined) return 0;
-      if(typeof v==='number'){
-        // Already minutes if > 24, otherwise treat as hours
-        return v>24? Math.round(v) : Math.round(v*60);
-      }
-      if(typeof v==='string'){
-        const p=parseT(v);
-        return p!==null? p : 0;
-      }
+      // exportJSON always saves integer minutes → treat all numbers as minutes directly
+      if(typeof v==='number') return Number.isFinite(v) ? Math.round(v) : 0;
+      // String fallback: parse "HH:MM" or decimal hours
+      if(typeof v==='string'){ const p=parseT(v); return p!==null ? p : 0; }
       return 0;
     };
+
     const validT=new Set(TRACKS);
 
     const parsed=raw.map((k,i)=>{
-      let segments;
+      let segs;
       if(Array.isArray(k.segments)&&k.segments.length){
-        segments=k.segments.map(s=>({
-          track: validT.has(s.track)? s.track : 'I',
-          dari:  toMins(s.dari),
-          sampai:toMins(s.sampai),
+        segs=k.segments.map(s=>({
+          track:  validT.has(s.track) ? s.track : 'I',
+          dari:   toMins(s.dari),
+          sampai: toMins(s.sampai),
         }));
       } else {
-        // Legacy format (seg1Jalur, seg1Dari, ...)
-        segments=[
-          {track:k.seg1Jalur||'I',    dari:toMins(k.seg1Dari),   sampai:toMins(k.seg1Sampai)},
-          {track:k.seg2Cuci||'CUCI 1',dari:toMins(k.seg2Dari),   sampai:toMins(k.seg2Sampai)},
-          {track:k.seg3Jalur||'I',    dari:toMins(k.seg3Dari),   sampai:toMins(k.seg3Sampai)},
+        // Legacy 3-segment flat format
+        segs=[
+          {track:k.seg1Jalur||'I',     dari:toMins(k.seg1Dari),   sampai:toMins(k.seg1Sampai)},
+          {track:k.seg2Cuci||'CUCI 1', dari:toMins(k.seg2Dari),   sampai:toMins(k.seg2Sampai)},
+          {track:k.seg3Jalur||'I',     dari:toMins(k.seg3Dari),   sampai:toMins(k.seg3Sampai)},
         ];
       }
-      // Validate segments
-      segments=segments.filter(s=>validT.has(s.track)&&s.sampai>s.dari);
-      if(!segments.length) return null;
+      // Drop invalid segments
+      segs=segs.filter(s=>validT.has(s.track)&&typeof s.dari==='number'&&typeof s.sampai==='number'&&s.sampai>s.dari);
+      if(!segs.length) return null;
 
-      return{
-        id: k.id||(Date.now()+i),
-        nama: String(k.nama||'KA'+(i+1)),
-        warna: /^#[0-9a-fA-F]{6}$/.test(k.warna)? k.warna : '#4ade80',
+      return {
+        id:     Number.isInteger(k.id)&&k.id>0 ? k.id : (Date.now()+i*7),
+        nama:   String(k.nama||'KA'+(i+1)),
+        warna:  /^#[0-9a-fA-F]{6}$/.test(k.warna) ? k.warna : '#4ade80',
         hidden: !!k.hidden,
-        segments,
+        segments: segs,
       };
     }).filter(Boolean);
 
-    if(!parsed.length){alert('Tidak ada data KA yang bisa diproses dari file ini.');return;}
+    if(!parsed.length){ alert('Tidak ada segmen yang valid di file ini.'); return; }
 
-    snapshot();
+    // Save current state for undo THEN assign
+    undoStack.push(JSON.stringify(kaData));
+    if(undoStack.length>50) undoStack.shift();
+    redoStack=[];
+    updateUndoRedoBtns();
+
     kaData=parsed;
     rebuildGrid();
     renderAll();
 
-    const btn=document.querySelector('label[onclick] [onchange="importJSON(event)"]')?.parentElement
-              || document.querySelector('[onchange="importJSON(event)"]')?.parentElement;
-    if(btn){
-      const orig=btn.childNodes[0]?.textContent||'📂';
-      if(btn.childNodes[0]) btn.childNodes[0].textContent=`✓ ${kaData.length} KA`;
-      btn.style.color='var(--grn)';
-      setTimeout(()=>{if(btn.childNodes[0]) btn.childNodes[0].textContent=orig;btn.style.color='';},2500);
+    // Visual feedback on the file input label
+    const lbl=document.getElementById('importLbl');
+    if(lbl){
+      const inp=lbl.querySelector('input');
+      const orig='📂';
+      lbl.childNodes[0].textContent=`✓ ${kaData.length} KA`;
+      lbl.style.color='var(--grn)';
+      setTimeout(()=>{ lbl.childNodes[0].textContent=orig; lbl.style.color=''; },2500);
     }
   };
   r.readAsText(file);
@@ -1387,9 +1390,13 @@ setInterval(()=>{
 },1000);
 
 // ══════════════════════════════════════════════════
-// RESIZE
+// RESIZE — debounced so import doesn't race
 // ══════════════════════════════════════════════════
-new ResizeObserver(()=>renderAll()).observe(document.getElementById('tracksArea'));
+let _resizeTimer=null;
+new ResizeObserver(()=>{
+  clearTimeout(_resizeTimer);
+  _resizeTimer=setTimeout(()=>renderAll(),80);
+}).observe(document.getElementById('tracksArea'));
 
 // ══════════════════════════════════════════════════
 // INIT — mulai kosong, user buat sendiri
