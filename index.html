@@ -70,10 +70,10 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .tl-scroll{
   flex:1;min-height:0;
   overflow-x:auto;
-  overflow-y:auto; /* allow vertical scroll on mobile */
+  overflow-y:auto;
   position:relative;
   -webkit-overflow-scrolling:touch;
-  touch-action:pan-x pan-y; /* both axes on mobile */
+  touch-action:pan-x pan-y;
 }
 /* Big scrollbar on desktop */
 .tl-scroll::-webkit-scrollbar{height:20px;}
@@ -83,13 +83,16 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   border-radius:10px;border:4px solid #0d1018;min-width:60px;
 }
 .tl-scroll::-webkit-scrollbar-thumb:hover{background:linear-gradient(to bottom,#6a70a0,#3a3f60);}
-.tl-inner{display:flex;flex-direction:column;height:calc(100% - 20px);}
+/* tl-inner tidak pakai height:100% agar konten bisa melebihi viewport dan scroll vertikal bekerja */
+.tl-inner{display:flex;flex-direction:column;min-height:100%;}
 
 /* Hour header */
 .tl-head{
   display:flex;height:var(--HH);flex-shrink:0;
   background:var(--sf);border-bottom:2px solid var(--bd);
   position:sticky;top:0;z-index:40;
+  /* Tetap di atas saat scroll vertikal */
+  will-change:transform;
 }
 .corner{
   width:var(--LW);min-width:var(--LW);flex-shrink:0;
@@ -108,7 +111,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* Track rows */
 .tracks-area{
-  flex:1;min-height:0;overflow:hidden;
+  flex:1;min-height:0;overflow:visible;
   position:relative;display:flex;flex-direction:column;
 }
 .track-row{
@@ -122,6 +125,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   font-weight:700;font-size:11px;letter-spacing:1.2px;color:var(--ac);
   background:var(--sf2);border-right:2px solid var(--bd);
   position:sticky;left:0;z-index:10;text-transform:uppercase;
+  /* Pastikan background solid agar teks blok tidak tembus */
+  box-shadow:2px 0 6px rgba(0,0,0,.4);
 }
 .track-grid{position:relative;flex:1;display:flex;overflow:visible;}
 .gcell{border-right:1px solid var(--gridline);height:100%;flex-shrink:0;}
@@ -271,6 +276,11 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   transition:height .25s ease, width .3s ease;
 }
 .sidebar.expanded{height:65vh;}
+/* Mobile: saat collapsed, hanya sb-head yg tampil (44px), sb-body tersembunyi */
+.sidebar.collapsed-mobile{height:44px;}
+.sidebar.collapsed-mobile .sb-body{display:none;}
+.sidebar.collapsed-mobile .sb-chevron{transform:rotate(0deg);}
+.sidebar.expanded .sb-chevron{transform:rotate(180deg);}
 
 @media(min-width:700px){
   .sidebar{
@@ -667,10 +677,20 @@ function initAllTimeInputs(root=document){
 // SIDEBAR TOGGLE
 // ══════════════════════════════════════════════════
 function toggleSidebar(){
-  // Mobile: expand/collapse height
-  if(window.innerWidth < 700){
-    document.getElementById('sidebar').classList.toggle('expanded');
+  if(window.innerWidth >= 700) return;
+  const sb=document.getElementById('sidebar');
+  // Jika sedang expanded → kembali ke normal
+  if(sb.classList.contains('expanded')){
+    sb.classList.remove('expanded');
+    return;
   }
+  // Jika sedang collapsed-mobile → expand
+  if(sb.classList.contains('collapsed-mobile')){
+    sb.classList.remove('collapsed-mobile');
+    return;
+  }
+  // Normal → collapsed-mobile
+  sb.classList.add('collapsed-mobile');
 }
 function toggleSidebarEdge(e){
   e.stopPropagation();
@@ -1377,6 +1397,9 @@ function importJSON(e){
     kaData=parsed;
     rebuildGrid();
     renderAll();
+    // Scroll ke atas setelah import agar user melihat hasil
+    const sc=document.getElementById('tlScroll');
+    if(sc){sc.scrollLeft=0;sc.scrollTop=0;}
 
     // Visual feedback on the file input label
     const lbl=document.getElementById('importLbl');
