@@ -69,9 +69,11 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .tl-wrap{flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 .tl-scroll{
   flex:1;min-height:0;
-  overflow-x:auto;overflow-y:hidden;
+  overflow-x:auto;
+  overflow-y:auto; /* allow vertical scroll on mobile */
   position:relative;
   -webkit-overflow-scrolling:touch;
+  touch-action:pan-x pan-y; /* both axes on mobile */
 }
 /* Big scrollbar on desktop */
 .tl-scroll::-webkit-scrollbar{height:20px;}
@@ -153,12 +155,12 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   white-space:nowrap;
   overflow:visible;
   z-index:200;
-  background:rgba(0,0,0,.6);
+  background:rgba(0,0,0,.65);
   border-radius:4px;
   padding:2px 6px;
   border:1px solid rgba(255,255,255,.25);
 }
-/* Floating label ABOVE block (narrow blocks, or top track) */
+/* Floating label ABOVE block */
 .blk-name.above{
   top:auto;bottom:calc(100% + 6px);
   transform:translateX(-50%);
@@ -171,14 +173,33 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
   border:5px solid transparent;border-top-color:rgba(8,10,18,.95);
 }
+/* Floating label BELOW block (first row) */
+.blk-name.below{
+  top:calc(100% + 6px);bottom:auto;
+  transform:translateX(-50%);
+  background:rgba(8,10,18,.95);
+  border-color:rgba(255,255,255,.35);
+  box-shadow:0 2px 12px rgba(0,0,0,.8);
+  z-index:300;
+}
+.blk-name.below::before{
+  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-bottom-color:rgba(8,10,18,.95);
+}
 
 /* Duration label */
 .blk-dur{
-  position:absolute;left:0;right:0;bottom:-15px;
+  position:absolute;left:0;right:0;
   text-align:center;
   font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.5);
+  color:rgba(255,255,255,.6);
   pointer-events:none;white-space:nowrap;overflow:visible;
+  z-index:8;
+  background:rgba(0,0,0,.55);
+  border-radius:2px;
+  padding:0 2px;
+  /* default: just below block */
+  bottom:-15px;
 }
 
 /* Timestamps outside block */
@@ -187,18 +208,20 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   font-family:'Share Tech Mono',monospace;font-size:9px;
   color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.8);
-  white-space:nowrap;pointer-events:none;z-index:6;
-  bottom:3px;
-  /* staggered vertical so adjacent blocks don't overlap */
+  white-space:nowrap;pointer-events:none;
+  z-index:8; /* above SVG arrows (z=2), above blocks (z=5) */
+  background:rgba(0,0,0,.82);
+  border-radius:3px;
+  padding:1px 3px;
 }
-/* jam MASUK (kiri): tampil di ATAS tengah blok */
+/* jam MASUK (kiri): tampil di pojok kiri-atas blok */
 .blk-ts-l{
   right:calc(100% + 2px);
   text-align:right;
-  bottom:auto;
   top:3px;
+  bottom:auto;
 }
-/* jam KELUAR (kanan): tampil di BAWAH tengah blok */
+/* jam KELUAR (kanan): tampil di pojok kanan-bawah blok */
 .blk-ts-r{
   left:calc(100% + 2px);
   text-align:left;
@@ -207,7 +230,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 }
 
 /* ══ SVG ══ */
-#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:12;overflow:visible;}
+/* SVG z-index BELOW blocks/labels so names & timestamps always on top */
+#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:2;overflow:visible;}
 
 /* ══ EMPTY HINT ══ */
 #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
@@ -239,34 +263,77 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .cf-item b{color:var(--txt);}
 
 /* ══ RIGHT — SIDEBAR ══ */
-/* Mobile: fixed height drawer at bottom */
 .sidebar{
   width:100%;flex-shrink:0;
   background:var(--sf);border-top:2px solid var(--bd);
   display:flex;flex-direction:column;overflow:hidden;
-  height:220px; /* collapsed default on mobile */
-  transition:height .25s ease;
+  height:220px;
+  transition:height .25s ease, width .3s ease;
 }
 .sidebar.expanded{height:65vh;}
+
 @media(min-width:700px){
   .sidebar{
-    width:290px;min-width:290px;height:auto;
+    width:290px;min-width:0;height:auto;
     border-top:none;border-left:2px solid var(--bd);
+    position:relative;
+    transition:width .3s ease;
   }
-  .sidebar.expanded{height:auto;}
+  .sidebar.collapsed-edge{
+    width:28px;
+  }
+  .sidebar.collapsed-edge .sb-body,
+  .sidebar.collapsed-edge #kaCount{
+    display:none;
+  }
+  .sidebar.collapsed-edge .sb-head{
+    flex-direction:column;
+    writing-mode:vertical-rl;
+    height:100%;
+    justify-content:flex-start;
+    padding:12px 4px;
+    gap:10px;
+    border-bottom:none;
+    cursor:pointer;
+  }
+  .sidebar.collapsed-edge .sb-collapse-btn{
+    writing-mode:horizontal-tb;
+    transform:scaleX(-1);
+  }
 }
+
 .sb-head{
   padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  display:flex;align-items:center;gap:8px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
 }
-.sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;}
+.sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
+#kaCount{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
+
+/* Mobile toggle */
+.sb-mobile-toggle{cursor:pointer;}
 .sb-chevron{margin-left:auto;color:var(--dim);transition:transform .25s;font-size:14px;}
 .sidebar.expanded .sb-chevron{transform:rotate(180deg);}
-@media(min-width:700px){.sb-chevron{display:none;}.sb-head{cursor:default;}}
-#kaCount{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);}
+@media(min-width:700px){.sb-chevron{display:none;}}
 
-.sb-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-.sb-scroll::-webkit-scrollbar{width:5px;}
+/* Desktop collapse button */
+.sb-collapse-btn{
+  margin-left:auto;background:transparent;border:none;cursor:pointer;
+  color:var(--dim);font-size:16px;padding:2px 4px;display:none;
+  transition:transform .25s;line-height:1;
+}
+@media(min-width:700px){.sb-collapse-btn{display:block;}}
+
+/* Body = scrollable area + add form */
+.sb-body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+
+/* Sidebar list: scrollable both axes */
+.sb-scroll{
+  flex:1;
+  overflow-y:auto;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.sb-scroll::-webkit-scrollbar{width:4px;height:4px;}
 .sb-scroll::-webkit-scrollbar-track{background:var(--bg);}
 .sb-scroll::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
 
@@ -403,21 +470,24 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
   <!-- ══ RIGHT: SIDEBAR ══ -->
   <div class="sidebar" id="sidebar">
-    <div class="sb-head" onclick="toggleSidebar()">
+    <div class="sb-head sb-mobile-toggle" onclick="toggleSidebar()">
       <div class="sb-title">Daftar KA</div>
       <span id="kaCount"></span>
       <span class="sb-chevron">▲</span>
+      <button class="sb-collapse-btn" onclick="toggleSidebarEdge(event)" title="Sembunyikan panel">◀</button>
     </div>
-    <div class="sb-scroll" id="kaList"></div>
-    <div class="add-form-wrap">
-      <button class="add-toggle-btn" onclick="toggleAddForm()">＋ Tambah Kereta Api</button>
-      <div class="add-form" id="addForm">
-        <!-- Add form segments built by JS -->
-        <div id="addSegContainer"></div>
-        <button class="btn-add-seg" onclick="addFormAddSeg()">＋ Tambah Segmen Stabling</button>
-        <div class="ef-btns" style="margin-top:4px;">
-          <button class="btn btn-primary" onclick="doAdd()" style="flex:1;">＋ Tambah KA</button>
-          <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">Batal</button>
+    <div class="sb-body" id="sbBody">
+      <div class="sb-scroll" id="kaList"></div>
+      <div class="add-form-wrap">
+        <button class="add-toggle-btn" onclick="toggleAddForm()">＋ Tambah Kereta Api</button>
+        <div class="add-form" id="addForm">
+          <!-- Add form segments built by JS -->
+          <div id="addSegContainer"></div>
+          <button class="btn-add-seg" onclick="addFormAddSeg()">＋ Tambah Segmen Stabling</button>
+          <div class="ef-btns" style="margin-top:4px;">
+            <button class="btn btn-primary" onclick="doAdd()" style="flex:1;">＋ Masukkan ke Jalur</button>
+            <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">Batal</button>
+          </div>
         </div>
       </div>
     </div>
@@ -569,10 +639,21 @@ function initAllTimeInputs(root=document){
 }
 
 // ══════════════════════════════════════════════════
-// SIDEBAR TOGGLE (mobile)
+// SIDEBAR TOGGLE
 // ══════════════════════════════════════════════════
 function toggleSidebar(){
-  document.getElementById('sidebar').classList.toggle('expanded');
+  // Mobile: expand/collapse height
+  if(window.innerWidth < 700){
+    document.getElementById('sidebar').classList.toggle('expanded');
+  }
+}
+function toggleSidebarEdge(e){
+  e.stopPropagation();
+  const sb = document.getElementById('sidebar');
+  const collapsed = sb.classList.toggle('collapsed-edge');
+  const btn = sb.querySelector('.sb-collapse-btn');
+  btn.textContent = collapsed ? '▶' : '◀';
+  btn.title = collapsed ? 'Tampilkan panel' : 'Sembunyikan panel';
 }
 
 // ══════════════════════════════════════════════════
@@ -671,7 +752,7 @@ function renderAll(){
 
   const svg=document.getElementById('arrowSvg');
   svg.setAttribute('width',svgW); svg.setAttribute('height',svgH);
-  svg.style.cssText=`position:absolute;top:0;left:${LW}px;width:${svgW}px;height:${svgH}px;z-index:12;pointer-events:none;overflow:visible;`;
+  svg.style.cssText=`position:absolute;top:0;left:${LW}px;width:${svgW}px;height:${svgH}px;z-index:2;pointer-events:none;overflow:visible;`;
   if(svg.parentElement!==area) area.appendChild(svg);
   svg.innerHTML=``; // lines only, no arrowhead
 
@@ -733,53 +814,84 @@ function renderAll(){
       block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
       block.addEventListener('mouseleave',hideTT);
       area.appendChild(block);
-      // Store reference to name label for post-render float check
-      block._nameLabel = nm;
-      block._blockW = w;
-      block._trackIdx = ti;
 
-      // After render: check if name label needs to float above
-      ;(function(b,label,blockWidth,trackIdx,rY){
+      // After render: float name label if it doesn't fit inside block
+      // Also move duration below name if name is floating
+      ;(function(b,label,durEl,blockWidth,trackIdx){
         requestAnimationFrame(()=>{
-          const lw=label.getBoundingClientRect().width;
-          const needAbove = lw > blockWidth - 4;
-          if(needAbove || lw > blockWidth - 4){
-            if(trackIdx===0){
-              label.style.top = 'calc(100% + 6px)';
-              label.style.bottom = 'auto';
-              label.style.transform = 'translateX(-50%)';
-              label.style.background = 'rgba(8,10,18,.95)';
-              label.style.borderColor = 'rgba(255,255,255,.35)';
+          const lw = label.getBoundingClientRect().width;
+          const fits = lw <= blockWidth - 8;
+          if(!fits){
+            if(trackIdx === 0){
+              // First track: float below block so it doesn't go under header
+              label.classList.add('below');
+              // Duration goes further below the floating name
+              durEl.style.bottom = 'auto';
+              durEl.style.top = 'calc(100% + 28px)';
+              durEl.style.left = '50%';
+              durEl.style.transform = 'translateX(-50%)';
             } else {
               label.classList.add('above');
+              // Duration goes above the floating name
+              durEl.style.bottom = 'auto';
+              durEl.style.top = 'calc(100% + 28px)';
+              durEl.style.left = '50%';
+              durEl.style.transform = 'translateX(-50%)';
             }
           }
+          // Also check if duration overlaps name (when both inside) — push dur down
+          // (no extra action needed since name is centred vertically and dur is below block)
         });
-      })(block,nm,w,ti,rowY);
+      })(block, nm, dur, w, ti);
     });
 
-    // Arrows — connect consecutive rendered segments
+    // Arrows — connect consecutive rendered segments using block corners
+    // Rule: if next block is BELOW current → exit from bottom-right of cur, enter top-left of next
+    //        if next block is ABOVE current → exit from top-right of cur, enter bottom-left of next
+    //        if same row → exit from right-center cur, enter left-center next (straight line)
     for(let si=0;si<rendered.length-1;si++){
       const cur=rendered[si], nx=rendered[si+1];
       if(!cur||!nx) continue;
-      const x1=cur.gridX+cur.w, y1=cur.rowY+ROW_H/2;
-      const x2=nx.gridX,        y2=nx.rowY+ROW_H/2;
+
+      const blockH2 = ROW_H - BLK_TOP - BLK_BOTTOM;
+      // Block vertical extents in SVG coords (SVG top = area top, each row is ROW_H px)
+      const curTop    = cur.rowY + BLK_TOP;
+      const curBottom = cur.rowY + BLK_TOP + blockH2;
+      const nxTop     = nx.rowY  + BLK_TOP;
+      const nxBottom  = nx.rowY  + BLK_TOP + blockH2;
+
+      let x1, y1, x2, y2;
+
+      if(cur.ti === nx.ti){
+        // Same row: straight horizontal line (right-center → left-center)
+        x1 = cur.gridX + cur.w;  y1 = (curTop+curBottom)/2;
+        x2 = nx.gridX;           y2 = (nxTop+nxBottom)/2;
+      } else if(nx.ti > cur.ti){
+        // Next is BELOW: exit bottom-right of cur, enter top-left of next
+        x1 = cur.gridX + cur.w;  y1 = curBottom;
+        x2 = nx.gridX;           y2 = nxTop;
+      } else {
+        // Next is ABOVE: exit top-right of cur, enter bottom-left of next
+        x1 = cur.gridX + cur.w;  y1 = curTop;
+        x2 = nx.gridX;           y2 = nxBottom;
+      }
+
       const path=document.createElementNS('http://www.w3.org/2000/svg','path');
       let d;
-      if(Math.abs(x2-x1)<1){
-        d=`M${x1},${y1} L${x2},${y2}`;
-      } else if(cur.ti===nx.ti){
+      if(cur.ti === nx.ti){
         d=`M${x1},${y1} L${x2},${y2}`;
       } else {
-        const mx=(x1+x2)/2;
-        d=`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+        // Cubic bezier with vertical handles for smooth corner-to-corner curve
+        const dx = Math.abs(x2-x1);
+        const cx1 = x1 + dx*0.5;
+        const cx2 = x2 - dx*0.5;
+        d=`M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
       }
       path.setAttribute('d',d);
       path.setAttribute('stroke',ka.warna);
-      path.setAttribute('stroke-width','2.5');
+      path.setAttribute('stroke-width','2');
       path.setAttribute('fill','none');
-      path.setAttribute('opacity', isHidden?'0.12':'0.92');
-      // no marker-end — arrowhead removed per request
+      path.setAttribute('opacity', isHidden?'0.12':'0.75');
       svg.appendChild(path);
     }
   });
@@ -1153,19 +1265,23 @@ function doAdd(){
 // SAVE / LOAD / EXPORT
 // ══════════════════════════════════════════════════
 function exportJSON(){
+  // Save dari/sampai as integer minutes (not strings) for reliable import
   const exportData=kaData.map(k=>({
     id:k.id, nama:k.nama, warna:k.warna, hidden:!!k.hidden,
-    segments:(k.segments||[]).map(s=>({track:s.track,dari:fmt(s.dari),sampai:fmt(s.sampai)})),
+    segments:(k.segments||[]).map(s=>({
+      track:s.track,
+      dari: typeof s.dari==='number'? s.dari : (parseT(s.dari)||0),
+      sampai: typeof s.sampai==='number'? s.sampai : (parseT(s.sampai)||0),
+    })),
   }));
-  const blob=new Blob([JSON.stringify({v:5,savedAt:new Date().toISOString(),kaData:exportData},null,2)],
+  const blob=new Blob([JSON.stringify({v:6,savedAt:new Date().toISOString(),kaData:exportData},null,2)],
     {type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.json';
   a.click();
-  // visual confirm
   const btn=document.querySelector('[onclick="exportJSON()"]');
-  if(btn){const o=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';
+  if(btn){const o=btn.textContent;btn.textContent='✓ Tersimpan';btn.style.color='var(--grn)';
     setTimeout(()=>{btn.textContent=o;btn.style.color='';},2000);}
 }
 
@@ -1179,47 +1295,70 @@ function importJSON(e){
     try{obj=JSON.parse(ev.target.result);}
     catch{alert('File bukan JSON yang valid.');return;}
 
-    const raw=Array.isArray(obj)?obj:Array.isArray(obj.kaData)?obj.kaData:null;
-    if(!raw||!raw.length){alert('File tidak berisi data KA.');return;}
+    // Support: array at root, or {kaData:[...]}, or {v:N, kaData:[...]}
+    const raw=Array.isArray(obj)? obj
+             : Array.isArray(obj.kaData)? obj.kaData
+             : null;
+    if(!raw||!raw.length){alert('File tidak berisi data KA yang valid.');return;}
 
     const toMins=v=>{
-      if(v==null) return 0;
-      if(typeof v==='string'){const p=parseT(v);return p!==null?p:0;}
-      if(typeof v==='number') return v<=24?Math.round(v*60):Math.round(v);
+      if(v===null||v===undefined) return 0;
+      if(typeof v==='number'){
+        // Already minutes if > 24, otherwise treat as hours
+        return v>24? Math.round(v) : Math.round(v*60);
+      }
+      if(typeof v==='string'){
+        const p=parseT(v);
+        return p!==null? p : 0;
+      }
       return 0;
     };
     const validT=new Set(TRACKS);
 
-    kaData=raw.map((k,i)=>{
-      // Support both old format (seg1Jalur/seg1Dari etc) and new (segments array)
+    const parsed=raw.map((k,i)=>{
       let segments;
       if(Array.isArray(k.segments)&&k.segments.length){
         segments=k.segments.map(s=>({
-          track:validT.has(s.track)?s.track:'I',
-          dari:toMins(s.dari), sampai:toMins(s.sampai),
+          track: validT.has(s.track)? s.track : 'I',
+          dari:  toMins(s.dari),
+          sampai:toMins(s.sampai),
         }));
       } else {
-        // Legacy format
+        // Legacy format (seg1Jalur, seg1Dari, ...)
         segments=[
-          {track:k.seg1Jalur||'I', dari:toMins(k.seg1Dari), sampai:toMins(k.seg1Sampai)},
-          {track:k.seg2Cuci||'CUCI 1',dari:toMins(k.seg2Dari),sampai:toMins(k.seg2Sampai)},
-          {track:k.seg3Jalur||'I', dari:toMins(k.seg3Dari), sampai:toMins(k.seg3Sampai)},
+          {track:k.seg1Jalur||'I',    dari:toMins(k.seg1Dari),   sampai:toMins(k.seg1Sampai)},
+          {track:k.seg2Cuci||'CUCI 1',dari:toMins(k.seg2Dari),   sampai:toMins(k.seg2Sampai)},
+          {track:k.seg3Jalur||'I',    dari:toMins(k.seg3Dari),   sampai:toMins(k.seg3Sampai)},
         ];
       }
+      // Validate segments
+      segments=segments.filter(s=>validT.has(s.track)&&s.sampai>s.dari);
+      if(!segments.length) return null;
+
       return{
-        id:k.id||(Date.now()+i),
-        nama:(k.nama||'?').toString(),
-        warna:/^#[0-9a-fA-F]{6}$/.test(k.warna)?k.warna:'#888888',
-        hidden:!!k.hidden,
+        id: k.id||(Date.now()+i),
+        nama: String(k.nama||'KA'+(i+1)),
+        warna: /^#[0-9a-fA-F]{6}$/.test(k.warna)? k.warna : '#4ade80',
+        hidden: !!k.hidden,
         segments,
       };
-    });
+    }).filter(Boolean);
 
-    rebuildGrid(); renderAll();
-    const btn=document.querySelector('[onchange="importJSON(event)"]')?.parentElement;
-    if(btn){const o=btn.childNodes[0]?.textContent||'📂';
-      btn.childNodes[0].textContent=`✓${kaData.length}KA`;btn.style.color='var(--grn)';
-      setTimeout(()=>{btn.childNodes[0].textContent=o;btn.style.color='';},2500);}
+    if(!parsed.length){alert('Tidak ada data KA yang bisa diproses dari file ini.');return;}
+
+    snapshot();
+    kaData=parsed;
+    rebuildGrid();
+    renderAll();
+
+    const btn=document.querySelector('label[onclick] [onchange="importJSON(event)"]')?.parentElement
+              || document.querySelector('[onchange="importJSON(event)"]')?.parentElement;
+    if(btn){
+      const orig=btn.childNodes[0]?.textContent||'📂';
+      if(btn.childNodes[0]) btn.childNodes[0].textContent=`✓ ${kaData.length} KA`;
+      btn.style.color='var(--grn)';
+      setTimeout(()=>{if(btn.childNodes[0]) btn.childNodes[0].textContent=orig;btn.style.color='';},2500);
+    }
   };
   r.readAsText(file);
 }
