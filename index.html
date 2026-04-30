@@ -586,7 +586,7 @@ function parseT(s){
   s=String(s).replace(/[^0-9:]/g,'').trim();
   if(s.includes(':')){
     const [h,m]=s.split(':').map(Number);
-    if(!isNaN(h)&&!isNaN(m)) return Math.max(0,Math.min(TOTAL,h*60+m));
+    if(!isNaN(h)&&!isNaN(m)) return Math.max(0,h*60+m);
   }
   const n=Number(s);
   if(!isNaN(n)&&n>=0&&n<=24) return Math.round(n*60);
@@ -800,105 +800,123 @@ function renderAll(){
       const ti=TRACKS.indexOf(seg.track);
       if(ti<0){rendered.push(null);return;}
 
+      // Cek apakah segmen melewati tengah malam (sampai > 1440)
+      const crossMidnight = seg.sampai > TOTAL;
+      // Untuk keperluan arrow, gunakan koordinat bagian pertama saja
       const gridX=minsToGridX(seg.dari);
-      const w=minsToGridX(seg.sampai)-gridX;
+      const sampaiClamped=Math.min(seg.sampai, TOTAL);
+      const w=minsToGridX(sampaiClamped)-gridX;
       const rowY=ti*ROW_H;
-      rendered.push({ti,gridX,w,rowY});
+      rendered.push({ti,gridX,w,rowY,crossMidnight});
 
-      if(isHidden){
-        // Still push for arrow calc but don't render block
-        return;
+      if(isHidden) return;
+
+      // ── Blok bagian pertama (hari ini) ──
+      const renderBlock=(fromM, toM)=>{
+        const gx=minsToGridX(fromM);
+        const bw=minsToGridX(toM)-gx;
+        if(bw<=0) return;
+        const block=document.createElement('div');
+        block.className='ka-block'+(isCF?' cf':'')+(isHidden?' hidden-block':'');
+        block.style.cssText=[
+          `left:${LW+gx}px`,`top:${rowY+BLK_TOP}px`,
+          `width:${bw}px`,`height:${blockH}px`,
+          `background:${ka.warna}`,`color:#fff`,
+        ].join(';');
+        block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
+        block.addEventListener('mouseleave',hideTT);
+        area.appendChild(block);
+        return {gx,bw};
+      };
+
+      const part1=renderBlock(seg.dari, sampaiClamped);
+
+      // Jika melewati tengah malam, render blok bagian kedua (esok hari mulai dari 0)
+      if(crossMidnight){
+        renderBlock(0, seg.sampai - TOTAL);
       }
 
-      const block=document.createElement('div');
-      block.className='ka-block'+(isCF?' cf':'')+(isHidden?' hidden-block':'');
-      block.style.cssText=[
-        `left:${LW+gridX}px`,`top:${rowY+BLK_TOP}px`,
-        `width:${w}px`,`height:${blockH}px`,
-        `background:${ka.warna}`,`color:#fff`,
-      ].join(';');
+      if(!part1) return;
+      const {gx, bw} = part1;
 
-      block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
-      block.addEventListener('mouseleave',hideTT);
-      area.appendChild(block);
-
-      // ── Hitung koordinat tengah blok untuk label ──
-      const blkCX = LW + gridX + w/2;        // center-x blok
-      const blkCY = rowY + BLK_TOP + blockH/2; // center-y blok
+      const blkCX = LW + gx + bw/2;
       const blkTop = rowY + BLK_TOP;
       const blkBot = rowY + BLK_TOP + blockH;
+      const blkCY  = rowY + BLK_TOP + blockH/2;
 
-      // Name label — ditambah ke area langsung (bukan child blok)
+      // Name label
       const nm=document.createElement('span');
       nm.className='blk-name';
       nm.textContent=ka.nama;
       nm.style.left = blkCX+'px';
       nm.style.top  = blkCY+'px';
-      // transform translate(-50%,-50%) sudah di CSS
       area.appendChild(nm);
 
-      // Duration — bawah blok
+      // Duration — tampilkan durasi total (termasuk bagian esok hari)
       const dur=document.createElement('span');
       dur.className='blk-dur';
-      dur.textContent=durLabel(seg.dari,seg.sampai);
+      dur.textContent=durLabel(seg.dari, seg.sampai);
       dur.style.left = blkCX+'px';
       dur.style.top  = (blkBot+2)+'px';
       area.appendChild(dur);
 
-      // Timestamp MASUK (kiri blok)
+      // Timestamp MASUK
       const tsL=document.createElement('span');
       tsL.className='blk-ts-l';
       tsL.textContent=fmt(seg.dari);
       tsL.style.top  = blkTop+'px';
-      // posisi x akan dikoreksi setelah render (kanan dari tepi kiri blok)
-      tsL.style.left = (LW+gridX)+'px';
+      tsL.style.left = (LW+gx)+'px';
       tsL.style.transform = 'translateX(-100%) translateX(-3px)';
       area.appendChild(tsL);
 
-      // Timestamp KELUAR (kanan blok)
+      // Timestamp KELUAR — tampilkan jam asli (misal 25:10 → ditampilkan 01:10+1)
       const tsR=document.createElement('span');
       tsR.className='blk-ts-r';
-      tsR.textContent=fmt(seg.sampai);
+      // Jika melewati tengah malam, tampilkan jam esok dengan tanda +1
+      const sampaiDisplay = crossMidnight
+        ? fmt(seg.sampai - TOTAL)+'+1'
+        : fmt(seg.sampai);
+      tsR.textContent=sampaiDisplay;
       tsR.style.bottom = 'auto';
       tsR.style.top    = (blkBot - 20)+'px';
-      tsR.style.left   = (LW+gridX+w+3)+'px';
+      // Timestamp keluar: jika cross midnight, tempel di ujung kanan bagian kedua
+      const tsRX = crossMidnight
+        ? LW + minsToGridX(seg.sampai - TOTAL) + 3
+        : LW + gx + bw + 3;
+      tsR.style.left = tsRX+'px';
       area.appendChild(tsR);
 
-      // After render: float name label jika tidak muat di dalam blok
-      ;(function(label,durEl,blockWidth,trackIdx,bCX,bTop,bBot,bCY){
+      // Float name label jika tidak muat
+      ;(function(label,durEl,blockWidth,trackIdx,bCX,bTop,bBot){
         requestAnimationFrame(()=>{
           const lw = label.getBoundingClientRect().width;
           const fits = lw <= blockWidth - 8;
           if(!fits){
             if(trackIdx === 0){
-              // Jalur pertama: float ke bawah blok
               label.classList.add('below');
               label.style.top  = (bBot + 8)+'px';
               label.style.left = bCX+'px';
-              // Durasi lebih ke bawah lagi
               durEl.style.top  = (bBot + 30)+'px';
             } else {
-              // Selain jalur pertama: float ke atas blok
               label.classList.add('above');
               label.style.top  = (bTop - 8)+'px';
               label.style.left = bCX+'px';
-              // Durasi tetap di bawah blok
             }
           }
         });
-      })(nm, dur, w, ti, blkCX, blkTop, blkBot, blkCY);
+      })(nm, dur, bw, ti, blkCX, blkTop, blkBot);
     });
 
     // Arrows — connect consecutive rendered segments using block corners
-    // Rule: if next block is BELOW current → exit from bottom-right of cur, enter top-left of next
-    //        if next block is ABOVE current → exit from top-right of cur, enter bottom-left of next
-    //        if same row → exit from right-center cur, enter left-center next (straight line)
     for(let si=0;si<rendered.length-1;si++){
       const cur=rendered[si], nx=rendered[si+1];
       if(!cur||!nx) continue;
 
+      // Jangan gambar garis jika blok berikutnya dimulai di KIRI blok sekarang
+      // (artinya sudah beda hari — garis akan melintang balik ke kiri)
+      if(nx.gridX < cur.gridX + cur.w) continue;
+
       const blockH2 = ROW_H - BLK_TOP - BLK_BOTTOM;
-      // Block vertical extents in SVG coords (SVG top = area top, each row is ROW_H px)
       const curTop    = cur.rowY + BLK_TOP;
       const curBottom = cur.rowY + BLK_TOP + blockH2;
       const nxTop     = nx.rowY  + BLK_TOP;
@@ -907,15 +925,12 @@ function renderAll(){
       let x1, y1, x2, y2;
 
       if(cur.ti === nx.ti){
-        // Same row: straight horizontal line (right-center → left-center)
         x1 = cur.gridX + cur.w;  y1 = (curTop+curBottom)/2;
         x2 = nx.gridX;           y2 = (nxTop+nxBottom)/2;
       } else if(nx.ti > cur.ti){
-        // Next is BELOW: exit bottom-right of cur, enter top-left of next
         x1 = cur.gridX + cur.w;  y1 = curBottom;
         x2 = nx.gridX;           y2 = nxTop;
       } else {
-        // Next is ABOVE: exit top-right of cur, enter bottom-left of next
         x1 = cur.gridX + cur.w;  y1 = curTop;
         x2 = nx.gridX;           y2 = nxBottom;
       }
@@ -925,7 +940,6 @@ function renderAll(){
       if(cur.ti === nx.ti){
         d=`M${x1},${y1} L${x2},${y2}`;
       } else {
-        // Cubic bezier with vertical handles for smooth corner-to-corner curve
         const dx = Math.abs(x2-x1);
         const cx1 = x1 + dx*0.5;
         const cx2 = x2 - dx*0.5;
@@ -1201,10 +1215,11 @@ function readFormSegs(container){
   const segEls=container.querySelectorAll('.ef-seg');
   for(const el of segEls){
     const track=el.querySelector('.seg-track').value;
-    const dari=parseT(el.querySelector('.seg-dari').value);
-    const sampai=parseT(el.querySelector('.seg-sampai').value);
+    let dari=parseT(el.querySelector('.seg-dari').value);
+    let sampai=parseT(el.querySelector('.seg-sampai').value);
     if(dari===null||sampai===null){alert('Format waktu harus HH:MM');return null;}
-    if(dari>=sampai){alert(`Segmen "${track}": Waktu masuk harus lebih kecil dari waktu keluar`);return null;}
+    // Jika sampai <= dari, anggap melewati tengah malam (esok hari)
+    if(sampai<=dari) sampai+=1440;
     segs.push({track,dari,sampai});
   }
   return segs;
@@ -1371,7 +1386,7 @@ function importJSON(e){
           {track:k.seg3Jalur||'I',     dari:toMins(k.seg3Dari),   sampai:toMins(k.seg3Sampai)},
         ];
       }
-      // Drop invalid segments
+      // Drop invalid segments (sampai boleh > 1440 jika melewati tengah malam)
       segs=segs.filter(s=>validT.has(s.track)&&typeof s.dari==='number'&&typeof s.sampai==='number'&&s.sampai>s.dari);
       if(!segs.length) return null;
 
