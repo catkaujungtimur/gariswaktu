@@ -228,9 +228,10 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   transition:height .25s ease, width .3s ease;
 }
 .sidebar.expanded{height:65vh;}
+/* Mobile collapsed: hanya sb-head tampil (44px), sb-body tersembunyi */
 .sidebar.collapsed-mobile{height:44px;}
 .sidebar.collapsed-mobile .sb-body{display:none;}
-.sidebar.collapsed-mobile .sb-head{display:none;}
+/* sb-head TIDAK pernah disembunyikan di mobile — selalu jadi strip kontrol */
 
 @media(min-width:700px){
   .sidebar{
@@ -252,28 +253,33 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   }
 }
 
+/* sb-head: selalu tampil sebagai strip header di mobile DAN desktop */
 .sb-head{
   padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  display:none;align-items:center;gap:8px;
+  display:flex;align-items:center;gap:8px;
+  background:var(--sf2);
 }
-@media(min-width:700px){.sb-head{display:flex;}}
 .sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
 #kaCountDesk{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
 
-/* ── Mobile toggle tab ── */
-.sb-tab{
-  display:flex;align-items:center;justify-content:center;gap:6px;
-  width:100%;padding:10px 12px;
-  background:var(--sf2);border-top:2px solid var(--ac);
-  cursor:pointer;flex-shrink:0;
-  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
-  letter-spacing:2px;color:var(--ac);text-transform:uppercase;
-  user-select:none;
+/* Tombol toggle mobile — menyatu di sb-head, selalu terlihat */
+.sb-mobile-toggle{
+  display:flex;
+  background:transparent;border:1px solid var(--ac);
+  color:var(--ac);font-size:13px;font-weight:700;
+  padding:3px 7px;border-radius:4px;cursor:pointer;
+  line-height:1;align-items:center;justify-content:center;
+  transition:background .15s;min-height:26px;min-width:26px;
+  flex-shrink:0;
 }
-.sb-tab-chevron{font-size:12px;transition:transform .25s;}
-.sidebar.collapsed-mobile .sb-tab-chevron{transform:rotate(180deg);}
-.sidebar.expanded .sb-tab-chevron{transform:rotate(0deg);}
-@media(min-width:700px){.sb-tab{display:none;}}
+.sb-mobile-toggle:hover,.sb-mobile-toggle:active{background:var(--ac);color:#0a0c10;}
+@media(min-width:700px){.sb-mobile-toggle{display:none;}} /* hanya mobile */
+
+/* Chevron rotate saat collapsed */
+.sidebar.collapsed-mobile .sb-mobile-toggle{transform:scaleY(-1);}
+
+/* sb-tab LAMA — tidak dipakai, disembunyikan */
+.sb-tab{display:none;}
 
 /* Desktop collapse button */
 .sb-collapse-btn{
@@ -282,18 +288,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   transition:transform .25s;line-height:1;
 }
 @media(min-width:700px){.sb-collapse-btn{display:block;}}
-
-/* ── Floating expand button — shown ONLY when sidebar is collapsed on mobile ── */
-/* It appears inside .sb-tab area always visible */
-#sbExpandBtn{
-  display:none; /* shown via JS when sidebar collapsed-mobile */
-  background:transparent;border:1px solid var(--ac);
-  color:var(--ac);font-size:11px;font-weight:700;font-family:'Rajdhani',sans-serif;
-  letter-spacing:1px;text-transform:uppercase;
-  padding:3px 9px;border-radius:4px;cursor:pointer;
-  flex-shrink:0;white-space:nowrap;min-height:26px;
-  align-items:center;
-}
 
 /* Body */
 .sb-body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
@@ -411,19 +405,17 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
   <!-- ══ RIGHT: SIDEBAR ══ -->
   <div class="sidebar" id="sidebar">
-    <!-- Mobile tab — always visible -->
-    <div class="sb-tab" onclick="toggleSidebar()">
-      <span class="sb-tab-chevron">▲</span>
-      <span>Daftar KA</span>
-      <span id="kaCount"></span>
-      <!-- expand button shown here when collapsed -->
-      <button id="sbExpandBtn" onclick="expandSidebarFromTab(event)">▲ Tampilkan</button>
-    </div>
+    <!-- Header — SELALU tampil, berisi judul + tombol toggle (mobile) + collapse (desktop) -->
     <div class="sb-head">
       <div class="sb-title">Daftar KA</div>
       <span id="kaCountDesk"></span>
+      <!-- Tombol toggle mobile: ▲ = expand, ▼ = collapse -->
+      <button class="sb-mobile-toggle" id="sbMobileToggle" onclick="toggleSidebar()" title="Tampilkan/sembunyikan">▲</button>
+      <!-- Desktop collapse button -->
       <button class="sb-collapse-btn" onclick="toggleSidebarEdge(event)" title="Sembunyikan panel">◀</button>
     </div>
+    <!-- sb-tab lama — kosong, disembunyikan oleh CSS -->
+    <div class="sb-tab"></div>
     <div class="sb-body" id="sbBody">
       <div class="sb-scroll" id="kaList"></div>
       <div class="add-form-wrap">
@@ -481,6 +473,7 @@ let conflicts     = {};
 let dragId        = null;
 let _pendingLabels= [];
 let _zoomHintTimer= null;
+let _rendering    = false; // guard: mencegah ResizeObserver memicu ulang saat sedang render
 
 // ══════════════════════════════════════════════════
 // LOCAL STORAGE
@@ -663,7 +656,7 @@ function initAllTimeInputs(root=document){
 }
 
 // ══════════════════════════════════════════════════
-// SIDEBAR TOGGLE — FIXED hidden behaviour
+// SIDEBAR TOGGLE — header selalu tampil, hanya body yang toggle
 // ══════════════════════════════════════════════════
 function toggleSidebar(){
   if(window.innerWidth >= 700) return;
@@ -671,35 +664,29 @@ function toggleSidebar(){
   const isCollapsed=sb.classList.contains('collapsed-mobile');
   if(isCollapsed){
     sb.classList.remove('collapsed-mobile');
-    sb.classList.remove('expanded');
   } else {
     sb.classList.add('collapsed-mobile');
   }
-  updateSbExpandBtn();
+  updateMobileToggleBtn();
+}
+
+// Update ikon tombol toggle mobile (▲ = bisa di-collapse, ▼ = bisa di-expand)
+function updateMobileToggleBtn(){
+  const sb=document.getElementById('sidebar');
+  const btn=document.getElementById('sbMobileToggle');
+  if(!btn) return;
+  const isCollapsed=sb.classList.contains('collapsed-mobile');
+  btn.textContent = isCollapsed ? '▼' : '▲';
+  btn.title = isCollapsed ? 'Tampilkan daftar KA' : 'Sembunyikan daftar KA';
 }
 
 function expandSidebarFromTab(e){
-  e.stopPropagation(); // don't trigger toggleSidebar from parent
-  const sb=document.getElementById('sidebar');
-  sb.classList.remove('collapsed-mobile');
-  sb.classList.remove('expanded');
-  updateSbExpandBtn();
+  // tidak dipakai lagi, dipertahankan agar tidak error jika terpanggil
+  e && e.stopPropagation();
 }
 
-// Update the inline expand button visibility inside the tab bar
-function updateSbExpandBtn(){
-  const sb=document.getElementById('sidebar');
-  const btn=document.getElementById('sbExpandBtn');
-  const chevron=sb.querySelector('.sb-tab-chevron');
-  const isCollapsed=sb.classList.contains('collapsed-mobile');
-  if(btn){
-    btn.style.display = isCollapsed ? 'inline-flex' : 'none';
-  }
-  if(chevron){
-    // When collapsed, hide chevron (expand btn takes its role)
-    chevron.style.opacity = isCollapsed ? '0' : '1';
-  }
-}
+// Dipertahankan agar tidak error
+function updateSbExpandBtn(){ updateMobileToggleBtn(); }
 
 function toggleSidebarEdge(e){
   e.stopPropagation();
@@ -723,6 +710,7 @@ function zoom(d){
 // BUILD GRID — uses dynamic colW
 // ══════════════════════════════════════════════════
 function rebuildGrid(){
+  _rendering = true;
   const mpc=ZOOM[zoomIdx], cols=Math.ceil(TOTAL/mpc);
   // Width = LW (fixed jalur label) + cols * colW (dynamic)
   document.getElementById('tlInner').style.minWidth=(LW+cols*colW)+'px';
@@ -763,6 +751,8 @@ function rebuildGrid(){
     row.appendChild(lbl); row.appendChild(grid);
     area.appendChild(row);
   });
+  // Lepas guard setelah 2 frame agar ResizeObserver yg sudah pending tidak memicu render ulang
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{ _rendering = false; }));
 }
 
 // ══════════════════════════════════════════════════
@@ -1037,12 +1027,11 @@ function renderSidebar(){
 
   list.innerHTML='';
   const countTxt = kaData.length+' KA';
-  document.getElementById('kaCount').textContent = countTxt;
   const kcd = document.getElementById('kaCountDesk');
   if(kcd) kcd.textContent = countTxt;
 
-  // Sync expand button state
-  updateSbExpandBtn();
+  // Sync tombol toggle mobile
+  updateMobileToggleBtn();
 
   kaData.forEach((ka,idx)=>{
     const isCF=!!conflicts[ka.id];
@@ -1075,12 +1064,6 @@ function renderSidebar(){
     hideBtn.onclick=()=>{
       ka.hidden=!ka.hidden;
       renderAll();
-      // After toggling hidden, make sure sidebar stays open
-      const sb=document.getElementById('sidebar');
-      if(sb.classList.contains('collapsed-mobile')){
-        sb.classList.remove('collapsed-mobile');
-        updateSbExpandBtn();
-      }
     };
 
     const delBtn=document.createElement('button');
@@ -1481,8 +1464,9 @@ setInterval(()=>{
 // ══════════════════════════════════════════════════
 let _resizeTimer=null;
 new ResizeObserver(()=>{
+  if(_rendering) return; // sedang rebuild grid — abaikan
   clearTimeout(_resizeTimer);
-  _resizeTimer=setTimeout(()=>renderAll(),80);
+  _resizeTimer=setTimeout(()=>{ if(!_rendering) renderAll(); },80);
 }).observe(document.getElementById('tracksArea'));
 
 // ══════════════════════════════════════════════════
@@ -1495,6 +1479,7 @@ document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
 rebuildGrid();
 renderAll();
+updateMobileToggleBtn();
 
 // Wire scroll-to-zoom after DOM ready
 initScrollZoom();
