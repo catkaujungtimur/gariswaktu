@@ -159,8 +159,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   border:1px solid rgba(255,255,255,.25);
   transform:translate(-50%,-50%); /* selalu fix di tengah blok */
 }
-/* blk-ts-l: jam masuk — pojok kiri atas, di LUAR blok (ke kiri & ke atas) */
-/* blk-ts-r: jam keluar — pojok kanan bawah, di LUAR blok (ke kanan & ke bawah) */
+/* blk-ts-l: jam masuk — kiri-atas blok, keluar ke KIRI (lurus dalam row, tidak naik) */
+/* blk-ts-r: jam keluar — kanan-bawah blok, keluar ke KANAN (lurus dalam row, tidak turun) */
 .blk-ts-l,.blk-ts-r{
   position:absolute;font-family:'Share Tech Mono',monospace;font-size:9px;
   color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);
@@ -902,26 +902,31 @@ function renderAll(){
       // CSS: transform:translate(-50%,-50%) — tepat tengah
       area.appendChild(nm);
 
-      // ── Jam masuk: kiri-atas, di LUAR blok ke kiri & ke atas ──
+      // ── Jam masuk: kiri-atas, keluar ke KIRI saja (tidak naik ke baris atas) ──
+      // ── Jam keluar: kanan-bawah, keluar ke KANAN saja (tidak turun ke baris bawah) ──
+      // Keduanya tetap dalam batas vertikal row blok masing-masing.
+      // Jika blok sempit: hide tsR dulu, lalu tsL jika sangat sempit.
+      const TS_HIDE_R   = 80; // px — sembunyikan jam keluar
+      const TS_HIDE_ALL = 36; // px — sembunyikan keduanya
+
       const tsL=document.createElement('span');
       tsL.className='blk-ts-l';
       tsL.textContent=fmt(seg.dari);
-      // Posisi: anchor di pojok kiri-atas blok, geser ke luar (kiri & atas)
       tsL.style.left      = blkL+'px';
       tsL.style.top       = blkTop+'px';
-      tsL.style.transform = 'translateX(-100%) translateX(-2px) translateY(-100%) translateY(-2px)';
+      tsL.style.transform = 'translateX(-100%) translateX(-2px)';
+      if(bw < TS_HIDE_ALL) tsL.style.display='none';
       area.appendChild(tsL);
 
-      // ── Jam keluar: kanan-bawah, di LUAR blok ke kanan & ke bawah ──
       const tsR=document.createElement('span');
       tsR.className='blk-ts-r';
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
       tsR.textContent=sampaiDisplay;
       const tsRX = crossMidnight ? LW + minsToGridX(seg.sampai - TOTAL) : blkR;
-      // Posisi: anchor di pojok kanan-bawah blok, geser ke luar (kanan & bawah)
       tsR.style.left      = tsRX+'px';
       tsR.style.top       = blkBot+'px';
-      tsR.style.transform = 'translateX(2px) translateY(2px)';
+      tsR.style.transform = 'translateX(2px) translateY(-100%)';
+      if(bw < TS_HIDE_R) tsR.style.display='none';
       area.appendChild(tsR);
     });
 
