@@ -513,10 +513,11 @@ const ROW_H  = 64;
 const BLK_TOP    = 3;
 const BLK_BOTTOM = 16;
 
-let kaData   = [];
-let zoomIdx  = 0;
-let conflicts= {};
-let dragId   = null;
+let kaData        = [];
+let zoomIdx       = 0;
+let conflicts     = {};
+let dragId        = null;
+let _pendingLabels= [];
 
 // ══════════════════════════════════════════════════
 // LOCAL STORAGE — auto-save & auto-load
@@ -526,12 +527,17 @@ const LS_KEY = 'gariswaktu_v6';
 function saveLocal(){
   try{
     localStorage.setItem(LS_KEY, JSON.stringify(kaData));
+    localStorage.setItem(LS_KEY+'_zoom', zoomIdx);
   } catch(e){ /* quota exceeded, abaikan */ }
 }
 
 function loadLocal(){
   try{
     const raw = localStorage.getItem(LS_KEY);
+    const zi  = localStorage.getItem(LS_KEY+'_zoom');
+    if(zi !== null && !isNaN(parseInt(zi))){
+      zoomIdx = Math.max(0, Math.min(ZOOM.length-1, parseInt(zi)));
+    }
     if(!raw) return false;
     const parsed = JSON.parse(raw);
     if(Array.isArray(parsed) && parsed.length){
@@ -856,7 +862,7 @@ function renderAll(){
   saveLocal();
   detectConflicts();
   document.querySelectorAll('.ka-block').forEach(e=>e.remove());
-  const _pendingLabels = [];
+  _pendingLabels = [];
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -1566,6 +1572,9 @@ new ResizeObserver(()=>{
 // ══════════════════════════════════════════════════
 kaData=[];
 loadLocal(); // pulihkan data dari sesi sebelumnya jika ada
+
+// Sinkronkan label zoom setelah load (zoomIdx mungkin sudah berubah)
+document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
 rebuildGrid();
 renderAll();
