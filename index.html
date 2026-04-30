@@ -765,12 +765,98 @@ function detectConflicts(){
 function toggleCF(){document.getElementById('cfPanel').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════
+// FLOATING LABEL COLLISION RESOLUTION
+// ══════════════════════════════════════════════════
+// Called after all blocks rendered; stagger overlapping floating labels
+function resolveFloatingLabels(labels, blockH){
+  // Step 1: measure each label, decide if it fits inside its block
+  // Step 2: for those that don't fit, assign floating position
+  // Step 3: collision-stagger within each track
+  const LABEL_H = 22; // approx label height px
+  const GAP = 4;
+
+  // Group by trackIdx
+  const byTrack = {};
+  labels.forEach(nm=>{
+    const ti = parseInt(nm.dataset.trackIdx);
+    if(!byTrack[ti]) byTrack[ti]=[];
+    byTrack[ti].push(nm);
+  });
+
+  Object.values(byTrack).forEach(group=>{
+    // Measure
+    const items = group.map(nm=>{
+      const bCX   = parseFloat(nm.dataset.blkCX);
+      const bTop  = parseFloat(nm.dataset.blkTop);
+      const bBot  = parseFloat(nm.dataset.blkBot);
+      const bW    = parseFloat(nm.dataset.blkW);
+      const ti    = parseInt(nm.dataset.trackIdx);
+      const lw    = nm.getBoundingClientRect().width;
+      const fits  = lw <= bW - 8;
+      return {nm, bCX, bTop, bBot, bW, ti, lw, fits};
+    });
+
+    // Items that don't fit → need floating
+    const floating = items.filter(it=>!it.fits);
+
+    if(!floating.length) return;
+
+    // Sort by horizontal center
+    floating.sort((a,b)=>a.bCX - b.bCX);
+
+    // For each floating label, assign a "level" to avoid overlap
+    // Level 0 = closest to block, higher = further away
+    const placed = []; // {x1, x2, level, isBelow}
+
+    floating.forEach(it=>{
+      const isBelow = it.ti === 0;
+      const halfW = it.lw / 2 + 4;
+      const x1 = it.bCX - halfW;
+      const x2 = it.bCX + halfW;
+
+      // Find lowest level where no collision
+      let level = 0;
+      let collision = true;
+      while(collision){
+        collision = false;
+        for(const p of placed){
+          if(p.isBelow !== isBelow) continue;
+          if(p.level !== level) continue;
+          // Horizontal overlap?
+          if(x1 < p.x2 + GAP && x2 > p.x1 - GAP){
+            collision = true; level++; break;
+          }
+        }
+      }
+      placed.push({x1, x2, level, isBelow});
+
+      // Apply position
+      const nm = it.nm;
+      const durEl = nm._durEl;
+      if(isBelow){
+        nm.classList.add('below');
+        const topY = it.bBot + 8 + level*(LABEL_H + GAP);
+        nm.style.top  = topY+'px';
+        nm.style.left = it.bCX+'px';
+        if(durEl) durEl.style.top = (topY + LABEL_H + 2)+'px';
+      } else {
+        nm.classList.add('above');
+        const topY = it.bTop - 8 - level*(LABEL_H + GAP);
+        nm.style.top  = topY+'px';
+        nm.style.left = it.bCX+'px';
+      }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════
 // RENDER ALL
 // ══════════════════════════════════════════════════
 function renderAll(){
   saveLocal();
   detectConflicts();
   document.querySelectorAll('.ka-block').forEach(e=>e.remove());
+  const _pendingLabels = [];
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -886,25 +972,14 @@ function renderAll(){
       tsR.style.left = tsRX+'px';
       area.appendChild(tsR);
 
-      // Float name label jika tidak muat
-      ;(function(label,durEl,blockWidth,trackIdx,bCX,bTop,bBot){
-        requestAnimationFrame(()=>{
-          const lw = label.getBoundingClientRect().width;
-          const fits = lw <= blockWidth - 8;
-          if(!fits){
-            if(trackIdx === 0){
-              label.classList.add('below');
-              label.style.top  = (bBot + 8)+'px';
-              label.style.left = bCX+'px';
-              durEl.style.top  = (bBot + 30)+'px';
-            } else {
-              label.classList.add('above');
-              label.style.top  = (bTop - 8)+'px';
-              label.style.left = bCX+'px';
-            }
-          }
-        });
-      })(nm, dur, bw, ti, blkCX, blkTop, blkBot);
+      // Tandai untuk post-process floating label
+      nm.dataset.blkCX   = blkCX;
+      nm.dataset.blkTop  = blkTop;
+      nm.dataset.blkBot  = blkBot;
+      nm.dataset.blkW    = bw;
+      nm.dataset.trackIdx= ti;
+      nm._durEl = dur;
+      _pendingLabels.push(nm);
     });
 
     // Arrows — connect consecutive rendered segments
@@ -973,6 +1048,9 @@ function renderAll(){
   });
 
   renderSidebar();
+
+  // Post-process: resolve floating label collisions
+  requestAnimationFrame(()=>resolveFloatingLabels(_pendingLabels, blockH));
 }
 
 function contrast(h){
