@@ -140,18 +140,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   cursor:pointer;pointer-events:all;
   border:1.5px solid rgba(255,255,255,.22);
   box-shadow:0 2px 10px rgba(0,0,0,.5);
-  transition:filter .15s,box-shadow .15s,opacity .2s;z-index:5;
+  transition:filter .15s,box-shadow .15s,opacity .2s;z-index:10;
 }
-.ka-block:hover,.ka-block:active{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4);z-index:20;}
+.ka-block:hover,.ka-block:active{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4);z-index:11;}
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 .ka-block.hidden-block{opacity:0.18;pointer-events:none;}
 
-/* ── Name label ── always at top z-index, never clipped by other blocks */
+/* ── Name label ── prioritas 1: z-index tertinggi, sibling langsung di area ── */
 .blk-name{
   position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
   text-align:center;
   font-size:11px;font-weight:700;letter-spacing:0.3px;
   color:#fff !important;
@@ -159,20 +156,20 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   pointer-events:none;
   white-space:nowrap;
   overflow:visible;
-  z-index:200;
-  background:rgba(0,0,0,.65);
+  z-index:60;
+  background:rgba(0,0,0,.75);
   border-radius:4px;
   padding:2px 6px;
   border:1px solid rgba(255,255,255,.25);
+  transform:translate(-50%,-50%);
 }
 /* Floating label ABOVE block */
 .blk-name.above{
-  top:auto;bottom:calc(100% + 6px);
-  transform:translateX(-50%);
   background:rgba(8,10,18,.95);
   border-color:rgba(255,255,255,.35);
   box-shadow:0 2px 12px rgba(0,0,0,.8);
-  z-index:300;
+  z-index:60;
+  transform:translateX(-50%);
 }
 .blk-name.above::after{
   content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
@@ -180,63 +177,47 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 }
 /* Floating label BELOW block (first row) */
 .blk-name.below{
-  top:calc(100% + 6px);bottom:auto;
-  transform:translateX(-50%);
   background:rgba(8,10,18,.95);
   border-color:rgba(255,255,255,.35);
   box-shadow:0 2px 12px rgba(0,0,0,.8);
-  z-index:300;
+  z-index:60;
+  transform:translateX(-50%);
 }
 .blk-name.below::before{
   content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
   border:5px solid transparent;border-bottom-color:rgba(8,10,18,.95);
 }
 
-/* Duration label */
+/* Duration label — prioritas 2 */
 .blk-dur{
-  position:absolute;left:0;right:0;
+  position:absolute;
   text-align:center;
   font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.6);
+  color:rgba(255,255,255,.85);
   pointer-events:none;white-space:nowrap;overflow:visible;
-  z-index:8;
-  background:rgba(0,0,0,.55);
+  z-index:40;
+  background:rgba(0,0,0,.7);
   border-radius:2px;
-  padding:0 2px;
-  /* default: just below block */
-  bottom:-15px;
+  padding:0 3px;
+  transform:translateX(-50%);
 }
 
-/* Timestamps outside block */
+/* Timestamps — prioritas 2 */
 .blk-ts-l,.blk-ts-r{
   position:absolute;
   font-family:'Share Tech Mono',monospace;font-size:9px;
   color:#fff;
   text-shadow:0 1px 3px rgba(0,0,0,.8);
   white-space:nowrap;pointer-events:none;
-  z-index:8; /* above SVG arrows (z=2), above blocks (z=5) */
-  background:rgba(0,0,0,.82);
+  z-index:40;
+  background:rgba(0,0,0,.88);
   border-radius:3px;
-  padding:1px 3px;
-}
-/* jam MASUK (kiri): tampil di pojok kiri-atas blok */
-.blk-ts-l{
-  right:calc(100% + 2px);
-  text-align:right;
-  top:3px;
-  bottom:auto;
-}
-/* jam KELUAR (kanan): tampil di pojok kanan-bawah blok */
-.blk-ts-r{
-  left:calc(100% + 2px);
-  text-align:left;
-  bottom:3px;
-  top:auto;
+  padding:1px 4px;
+  border:1px solid rgba(255,255,255,.15);
 }
 
-/* ══ SVG ══ */
-/* SVG z-index BELOW blocks/labels so names & timestamps always on top */
-#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:2;overflow:visible;}
+/* ══ SVG — prioritas 4: paling belakang ══ */
+#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
 
 /* ══ EMPTY HINT ══ */
 #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
@@ -837,58 +818,75 @@ function renderAll(){
         `background:${ka.warna}`,`color:#fff`,
       ].join(';');
 
-      // Name label
-      const nm=document.createElement('span');
-      nm.className='blk-name';
-      nm.textContent=ka.nama;
-      block.appendChild(nm);
-
-      // Duration
-      const dur=document.createElement('span');
-      dur.className='blk-dur';
-      dur.textContent=durLabel(seg.dari,seg.sampai);
-      block.appendChild(dur);
-
-      // Timestamps
-      const tsL=document.createElement('span');
-      tsL.className='blk-ts-l';tsL.textContent=fmt(seg.dari);
-      block.appendChild(tsL);
-      const tsR=document.createElement('span');
-      tsR.className='blk-ts-r';tsR.textContent=fmt(seg.sampai);
-      block.appendChild(tsR);
-
       block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
       block.addEventListener('mouseleave',hideTT);
       area.appendChild(block);
 
-      // After render: float name label if it doesn't fit inside block
-      // Also move duration below name if name is floating
-      ;(function(b,label,durEl,blockWidth,trackIdx){
+      // ── Hitung koordinat tengah blok untuk label ──
+      const blkCX = LW + gridX + w/2;        // center-x blok
+      const blkCY = rowY + BLK_TOP + blockH/2; // center-y blok
+      const blkTop = rowY + BLK_TOP;
+      const blkBot = rowY + BLK_TOP + blockH;
+
+      // Name label — ditambah ke area langsung (bukan child blok)
+      const nm=document.createElement('span');
+      nm.className='blk-name';
+      nm.textContent=ka.nama;
+      nm.style.left = blkCX+'px';
+      nm.style.top  = blkCY+'px';
+      // transform translate(-50%,-50%) sudah di CSS
+      area.appendChild(nm);
+
+      // Duration — bawah blok
+      const dur=document.createElement('span');
+      dur.className='blk-dur';
+      dur.textContent=durLabel(seg.dari,seg.sampai);
+      dur.style.left = blkCX+'px';
+      dur.style.top  = (blkBot+2)+'px';
+      area.appendChild(dur);
+
+      // Timestamp MASUK (kiri blok)
+      const tsL=document.createElement('span');
+      tsL.className='blk-ts-l';
+      tsL.textContent=fmt(seg.dari);
+      tsL.style.top  = blkTop+'px';
+      // posisi x akan dikoreksi setelah render (kanan dari tepi kiri blok)
+      tsL.style.left = (LW+gridX)+'px';
+      tsL.style.transform = 'translateX(-100%) translateX(-3px)';
+      area.appendChild(tsL);
+
+      // Timestamp KELUAR (kanan blok)
+      const tsR=document.createElement('span');
+      tsR.className='blk-ts-r';
+      tsR.textContent=fmt(seg.sampai);
+      tsR.style.bottom = 'auto';
+      tsR.style.top    = (blkBot - 20)+'px';
+      tsR.style.left   = (LW+gridX+w+3)+'px';
+      area.appendChild(tsR);
+
+      // After render: float name label jika tidak muat di dalam blok
+      ;(function(label,durEl,blockWidth,trackIdx,bCX,bTop,bBot,bCY){
         requestAnimationFrame(()=>{
           const lw = label.getBoundingClientRect().width;
           const fits = lw <= blockWidth - 8;
           if(!fits){
             if(trackIdx === 0){
-              // First track: float below block so it doesn't go under header
+              // Jalur pertama: float ke bawah blok
               label.classList.add('below');
-              // Duration goes further below the floating name
-              durEl.style.bottom = 'auto';
-              durEl.style.top = 'calc(100% + 28px)';
-              durEl.style.left = '50%';
-              durEl.style.transform = 'translateX(-50%)';
+              label.style.top  = (bBot + 8)+'px';
+              label.style.left = bCX+'px';
+              // Durasi lebih ke bawah lagi
+              durEl.style.top  = (bBot + 30)+'px';
             } else {
+              // Selain jalur pertama: float ke atas blok
               label.classList.add('above');
-              // Duration goes above the floating name
-              durEl.style.bottom = 'auto';
-              durEl.style.top = 'calc(100% + 28px)';
-              durEl.style.left = '50%';
-              durEl.style.transform = 'translateX(-50%)';
+              label.style.top  = (bTop - 8)+'px';
+              label.style.left = bCX+'px';
+              // Durasi tetap di bawah blok
             }
           }
-          // Also check if duration overlaps name (when both inside) — push dur down
-          // (no extra action needed since name is centred vertically and dur is below block)
         });
-      })(block, nm, dur, w, ti);
+      })(nm, dur, w, ti, blkCX, blkTop, blkBot, blkCY);
     });
 
     // Arrows — connect consecutive rendered segments using block corners
