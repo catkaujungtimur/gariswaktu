@@ -367,7 +367,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 </header>
 
 <!-- Zoom hint overlay -->
-<div id="zoomHint">⟵ scroll = lebar kolom ⟶</div>
+<div id="zoomHint">⟵ pinch / Ctrl+scroll = lebar kolom ⟶</div>
 
 <div class="app">
 
@@ -548,24 +548,20 @@ function updateColWidthLabel(){
 function initScrollZoom(){
   const scroll=document.getElementById('tlScroll');
 
+  // ── Desktop: Ctrl+Wheel zooms column width ──
   scroll.addEventListener('wheel', e=>{
-    // Only zoom if Ctrl is held OR if scrolling on the header area
-    // Actually: use Ctrl+Wheel for column zoom (natural), plain wheel = pan
-    if(!e.ctrlKey && !e.metaKey) return; // plain scroll = pan (default browser behaviour)
+    if(!e.ctrlKey && !e.metaKey) return; // plain scroll = pan
 
     e.preventDefault();
 
-    // Save scroll ratio so the view stays anchored
     const sl=scroll.scrollLeft;
     const oldW=colW;
 
-    // deltaY>0 = scroll down = zoom out (narrower), <0 = zoom in (wider)
     const delta = e.deltaY > 0 ? -1 : 1;
     const factor = 1.08;
     colW = delta > 0 ? colW * factor : colW / factor;
     colW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, colW));
 
-    // Anchor: keep the pixel under cursor at same position
     const ratio = colW / oldW;
     rebuildGrid();
     renderAll();
@@ -574,7 +570,54 @@ function initScrollZoom(){
     showZoomHint();
   }, {passive:false});
 
-  // Also support pinch-to-zoom on touch via pointermove (optional, desktop mainly)
+  // ── Mobile/Android: Pinch gesture (2 jari) zooms column width ──
+  let _pinchStartDist = null;
+  let _pinchStartColW = null;
+  let _pinchStartScrollLeft = null;
+  let _pinchMidX = null;
+
+  scroll.addEventListener('touchstart', e=>{
+    if(e.touches.length === 2){
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      _pinchStartDist = Math.hypot(dx, dy);
+      _pinchStartColW = colW;
+      _pinchStartScrollLeft = scroll.scrollLeft;
+      _pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    } else {
+      _pinchStartDist = null;
+    }
+  }, {passive:true});
+
+  scroll.addEventListener('touchmove', e=>{
+    if(e.touches.length !== 2 || _pinchStartDist === null) return;
+    e.preventDefault(); // stop scroll during pinch
+
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    const dist = Math.hypot(dx, dy);
+
+    const scale = dist / _pinchStartDist;
+    const newColW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, _pinchStartColW * scale));
+
+    if(Math.abs(newColW - colW) < 0.5) return; // no change
+
+    const ratio = newColW / colW;
+    colW = newColW;
+    rebuildGrid();
+    renderAll();
+    // Re-anchor: keep pinch midpoint fixed
+    scroll.scrollLeft = (_pinchStartScrollLeft + _pinchMidX - scroll.getBoundingClientRect().left) * (newColW / _pinchStartColW) - (_pinchMidX - scroll.getBoundingClientRect().left);
+
+    showZoomHint();
+  }, {passive:false});
+
+  scroll.addEventListener('touchend', e=>{
+    if(e.touches.length < 2){
+      _pinchStartDist = null;
+      _pinchStartColW = null;
+    }
+  }, {passive:true});
 }
 
 // ══════════════════════════════════════════════════
@@ -989,10 +1032,16 @@ function renderSidebar(){
     const hideBtn=document.createElement('button');
     hideBtn.className='btn btn-hide btn-sm'+(ka.hidden?' active':'');
     hideBtn.textContent=ka.hidden?'👁 Tampilkan':'🚫 Sembunyikan';
-    hideBtn.onclick=()=>{
-      ka.hidden=!ka.hidden;
+    hideBtn.dataset.hideId=ka.id;
+    hideBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      const targetId = +this.dataset.hideId;
+      const target = kaData.find(k=>k.id===targetId);
+      if(!target) return;
+      snapshot();
+      target.hidden = !target.hidden;
       renderAll();
-    };
+    });
 
     const delBtn=document.createElement('button');
     delBtn.className='btn btn-del btn-sm';
