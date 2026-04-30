@@ -907,14 +907,26 @@ function renderAll(){
       })(nm, dur, bw, ti, blkCX, blkTop, blkBot);
     });
 
-    // Arrows — connect consecutive rendered segments using block corners
+    // Arrows — connect consecutive rendered segments
     for(let si=0;si<rendered.length-1;si++){
       const cur=rendered[si], nx=rendered[si+1];
       if(!cur||!nx) continue;
 
-      // Jangan gambar garis jika blok berikutnya dimulai di KIRI blok sekarang
-      // (artinya sudah beda hari — garis akan melintang balik ke kiri)
-      if(nx.gridX < cur.gridX + cur.w) continue;
+      const curSeg = ka.segments[si];
+      const nxSeg  = ka.segments[si+1];
+      if(!curSeg||!nxSeg) continue;
+
+      // cur berakhir di esok hari jika sampai > 1440
+      // Dalam konteks itu, ujung "esok" cur = cur.sampai - 1440
+      const curEndEsok = curSeg.sampai > TOTAL ? curSeg.sampai - TOTAL : null;
+
+      // Apakah hubungan ini valid?
+      // 1. Normal: nx mulai setelah cur selesai, di hari yang sama
+      const isNormalValid = curSeg.sampai <= TOTAL && nxSeg.dari >= curSeg.sampai;
+      // 2. Cross-midnight: cur berakhir esok hari, dan nx mulai di esok hari setelah cur berakhir
+      const isCrossValid  = curEndEsok !== null && nxSeg.dari >= curEndEsok;
+
+      if(!isNormalValid && !isCrossValid) continue;
 
       const blockH2 = ROW_H - BLK_TOP - BLK_BOTTOM;
       const curTop    = cur.rowY + BLK_TOP;
@@ -924,16 +936,22 @@ function renderAll(){
 
       let x1, y1, x2, y2;
 
+      // x1: ujung kanan blok cur
+      // Jika cross-midnight, ujungnya adalah posisi (curEndEsok) di grid (bagian esok hari)
+      x1 = isCrossValid ? minsToGridX(curEndEsok) : cur.gridX + cur.w;
+      // x2: awal blok nx (selalu posisi nx.dari di grid, karena nx ada di hari ini / esok hari normal)
+      x2 = nx.gridX;
+
       if(cur.ti === nx.ti){
-        x1 = cur.gridX + cur.w;  y1 = (curTop+curBottom)/2;
-        x2 = nx.gridX;           y2 = (nxTop+nxBottom)/2;
+        y1 = (curTop+curBottom)/2; y2 = (nxTop+nxBottom)/2;
       } else if(nx.ti > cur.ti){
-        x1 = cur.gridX + cur.w;  y1 = curBottom;
-        x2 = nx.gridX;           y2 = nxTop;
+        y1 = curBottom; y2 = nxTop;
       } else {
-        x1 = cur.gridX + cur.w;  y1 = curTop;
-        x2 = nx.gridX;           y2 = nxBottom;
+        y1 = curTop;    y2 = nxBottom;
       }
+
+      // Jika x2 masih di kiri x1 (tidak seharusnya terjadi setelah pengecekan di atas), skip
+      if(x2 < x1 - 2) continue;
 
       const path=document.createElementNS('http://www.w3.org/2000/svg','path');
       let d;
@@ -941,9 +959,9 @@ function renderAll(){
         d=`M${x1},${y1} L${x2},${y2}`;
       } else {
         const dx = Math.abs(x2-x1);
-        const cx1 = x1 + dx*0.5;
-        const cx2 = x2 - dx*0.5;
-        d=`M${x1},${y1} C${cx1},${y1} ${cx2},${y2} ${x2},${y2}`;
+        const cx1b = x1 + dx*0.5;
+        const cx2b = x2 - dx*0.5;
+        d=`M${x1},${y1} C${cx1b},${y1} ${cx2b},${y2} ${x2},${y2}`;
       }
       path.setAttribute('d',d);
       path.setAttribute('stroke',ka.warna);
