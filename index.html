@@ -13,7 +13,7 @@
   --ac:#f0b429; --ac2:#00c2ff; --red:#ef4444; --grn:#22c55e;
   --txt:#e8eaf0; --dim:#6b7280; --gridline:#1e2330;
   --LW:72px;
-  --ROW:64px;
+  --ROW:72px;
   --HH:40px;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -156,35 +156,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.7);
   pointer-events:none;white-space:nowrap;overflow:visible;z-index:60;
   background:rgba(0,0,0,.75);border-radius:4px;padding:2px 6px;
-  border:1px solid rgba(255,255,255,.25);transform:translate(-50%,-50%);
+  border:1px solid rgba(255,255,255,.25);
+  transform:translate(-50%,-50%); /* selalu fix di tengah blok */
 }
-.blk-name.above{
-  background:rgba(8,10,18,.95);border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);z-index:60;transform:translateX(-50%);
-}
-.blk-name.above::after{
-  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-top-color:rgba(8,10,18,.95);
-}
-.blk-name.below{
-  background:rgba(8,10,18,.95);border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);z-index:60;transform:translateX(-50%);
-}
-.blk-name.below::before{
-  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-bottom-color:rgba(8,10,18,.95);
-}
-.blk-dur{
-  position:absolute;text-align:center;
-  font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.85);
-  pointer-events:none;white-space:nowrap;overflow:visible;z-index:40;
-  background:rgba(0,0,0,.7);border-radius:2px;padding:0 3px;transform:translateX(-50%);
-}
+/* blk-ts-l: jam masuk — pojok kiri atas, di LUAR blok (ke kiri & ke atas) */
+/* blk-ts-r: jam keluar — pojok kanan bawah, di LUAR blok (ke kanan & ke bawah) */
 .blk-ts-l,.blk-ts-r{
   position:absolute;font-family:'Share Tech Mono',monospace;font-size:9px;
   color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);
-  white-space:nowrap;pointer-events:none;z-index:40;
+  white-space:nowrap;pointer-events:none;z-index:50;
   background:rgba(0,0,0,.88);border-radius:3px;padding:1px 4px;
   border:1px solid rgba(255,255,255,.15);
 }
@@ -370,6 +350,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
     <span id="clock">—</span>
     <button class="btn btn-ghost btn-sm" id="btnUndo" onclick="undo()" title="Undo" style="opacity:0.35;">↩</button>
     <button class="btn btn-ghost btn-sm" id="btnRedo" onclick="redo()" title="Redo" style="opacity:0.35;">↪</button>
+    <button class="btn btn-ghost btn-sm" id="btnSidebarToggle" onclick="toggleSidebarFromHeader()" title="Tampilkan/sembunyikan daftar KA" style="font-size:13px;">◀ KA</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAll()" title="Reset semua data" style="color:var(--red);border-color:var(--red);">⊘</button>
     <div id="cfBadge" onclick="toggleCF()">⚠ KONFLIK</div>
     <div class="zoom-c">
@@ -459,9 +440,9 @@ const JALUR  = ['I','II','III','IV','V','VI'];
 const TOTAL  = 1440;
 const ZOOM   = [60,30,15];
 const LW     = 72;
-const ROW_H  = 64;
-const BLK_TOP    = 3;
-const BLK_BOTTOM = 16;
+const ROW_H  = 72;   /* dinaikkan dari 64 agar blok cukup tinggi untuk 3 item */
+const BLK_TOP    = 2;
+const BLK_BOTTOM = 2; /* blok hampir penuh tinggi row */
 
 // ── Dynamic column width (scroll-to-zoom) ──
 // Range: 22px (very zoomed out) – 160px (very zoomed in)
@@ -474,7 +455,6 @@ let kaData        = [];
 let zoomIdx       = 0;
 let conflicts     = {};
 let dragId        = null;
-let _pendingLabels= [];
 let _zoomHintTimer= null;
 
 // ══════════════════════════════════════════════════
@@ -657,6 +637,24 @@ function initAllTimeInputs(root=document){
   });
 }
 
+// Toggle sidebar dari header — works di mobile (collapsed-mobile) dan desktop (collapsed-edge)
+function toggleSidebarFromHeader(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('btnSidebarToggle');
+  if(window.innerWidth >= 700){
+    // Desktop: toggle collapsed-edge
+    const collapsed = sb.classList.toggle('collapsed-edge');
+    const edgeBtn = sb.querySelector('.sb-collapse-btn');
+    if(edgeBtn){ edgeBtn.textContent = collapsed ? '▶' : '◀'; }
+    if(btn){ btn.textContent = collapsed ? '▶ KA' : '◀ KA'; btn.title = collapsed ? 'Tampilkan daftar KA' : 'Sembunyikan daftar KA'; }
+  } else {
+    // Mobile: toggle collapsed-mobile
+    const collapsed = sb.classList.toggle('collapsed-mobile');
+    updateMobileToggleBtn();
+    if(btn){ btn.textContent = collapsed ? '▶ KA' : '◀ KA'; }
+  }
+}
+
 // ══════════════════════════════════════════════════
 // SIDEBAR TOGGLE — header selalu tampil, hanya body yang toggle
 // ══════════════════════════════════════════════════
@@ -783,73 +781,12 @@ function detectConflicts(){
 function toggleCF(){document.getElementById('cfPanel').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════
-// FLOATING LABEL COLLISION RESOLUTION
-// ══════════════════════════════════════════════════
-function resolveFloatingLabels(labels, blockH){
-  const LABEL_H = 22;
-  const GAP = 4;
-  const byTrack = {};
-  labels.forEach(nm=>{
-    const ti = parseInt(nm.dataset.trackIdx);
-    if(!byTrack[ti]) byTrack[ti]=[];
-    byTrack[ti].push(nm);
-  });
-  Object.values(byTrack).forEach(group=>{
-    const items = group.map(nm=>{
-      const bCX   = parseFloat(nm.dataset.blkCX);
-      const bTop  = parseFloat(nm.dataset.blkTop);
-      const bBot  = parseFloat(nm.dataset.blkBot);
-      const bW    = parseFloat(nm.dataset.blkW);
-      const ti    = parseInt(nm.dataset.trackIdx);
-      const lw    = nm.getBoundingClientRect().width;
-      const fits  = lw <= bW - 8;
-      return {nm, bCX, bTop, bBot, bW, ti, lw, fits};
-    });
-    const floating = items.filter(it=>!it.fits);
-    if(!floating.length) return;
-    floating.sort((a,b)=>a.bCX - b.bCX);
-    const placed = [];
-    floating.forEach(it=>{
-      const isBelow = it.ti === 0;
-      const halfW = it.lw / 2 + 4;
-      const x1 = it.bCX - halfW;
-      const x2 = it.bCX + halfW;
-      let level = 0, collision = true;
-      while(collision){
-        collision = false;
-        for(const p of placed){
-          if(p.isBelow !== isBelow) continue;
-          if(p.level !== level) continue;
-          if(x1 < p.x2 + GAP && x2 > p.x1 - GAP){ collision=true;level++;break; }
-        }
-      }
-      placed.push({x1, x2, level, isBelow});
-      const nm = it.nm;
-      const durEl = nm._durEl;
-      if(isBelow){
-        nm.classList.add('below');
-        const topY = it.bBot + 8 + level*(LABEL_H + GAP);
-        nm.style.top  = topY+'px';
-        nm.style.left = it.bCX+'px';
-        if(durEl) durEl.style.top = (topY + LABEL_H + 2)+'px';
-      } else {
-        nm.classList.add('above');
-        const topY = it.bTop - 8 - level*(LABEL_H + GAP);
-        nm.style.top  = topY+'px';
-        nm.style.left = it.bCX+'px';
-      }
-    });
-  });
-}
-
-// ══════════════════════════════════════════════════
 // RENDER ALL
 // ══════════════════════════════════════════════════
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block,.blk-name,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
-  _pendingLabels = [];
+  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -906,50 +843,43 @@ function renderAll(){
       if(!part1) return;
 
       const {gx, bw} = part1;
-      const blkCX = LW + gx + bw/2;
+      const blkL   = LW + gx;
+      const blkR   = LW + gx + bw;
+      const blkCX  = blkL + bw/2;
       const blkTop = rowY + BLK_TOP;
       const blkBot = rowY + BLK_TOP + blockH;
       const blkCY  = rowY + BLK_TOP + blockH/2;
 
+      // ── Nama KA: selalu fix di tengah blok, tidak pernah bergeser ──
       const nm=document.createElement('span');
       nm.className='blk-name';
       nm.textContent=ka.nama;
       nm.style.left = blkCX+'px';
       nm.style.top  = blkCY+'px';
+      // CSS: transform:translate(-50%,-50%) — tepat tengah
       area.appendChild(nm);
 
-      const dur=document.createElement('span');
-      dur.className='blk-dur';
-      dur.textContent=durLabel(seg.dari, seg.sampai);
-      dur.style.left = blkCX+'px';
-      dur.style.top  = (blkBot+2)+'px';
-      area.appendChild(dur);
-
+      // ── Jam masuk: kiri-atas, di LUAR blok ke kiri & ke atas ──
       const tsL=document.createElement('span');
       tsL.className='blk-ts-l';
       tsL.textContent=fmt(seg.dari);
-      tsL.style.top  = blkTop+'px';
-      tsL.style.left = (LW+gx)+'px';
-      tsL.style.transform = 'translateX(-100%) translateX(-3px)';
+      // Posisi: anchor di pojok kiri-atas blok, geser ke luar (kiri & atas)
+      tsL.style.left      = blkL+'px';
+      tsL.style.top       = blkTop+'px';
+      tsL.style.transform = 'translateX(-100%) translateX(-2px) translateY(-100%) translateY(-2px)';
       area.appendChild(tsL);
 
+      // ── Jam keluar: kanan-bawah, di LUAR blok ke kanan & ke bawah ──
       const tsR=document.createElement('span');
       tsR.className='blk-ts-r';
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
       tsR.textContent=sampaiDisplay;
-      tsR.style.bottom = 'auto';
-      tsR.style.top    = (blkBot - 20)+'px';
-      const tsRX = crossMidnight ? LW + minsToGridX(seg.sampai - TOTAL) + 3 : LW + gx + bw + 3;
-      tsR.style.left = tsRX+'px';
+      const tsRX = crossMidnight ? LW + minsToGridX(seg.sampai - TOTAL) : blkR;
+      // Posisi: anchor di pojok kanan-bawah blok, geser ke luar (kanan & bawah)
+      tsR.style.left      = tsRX+'px';
+      tsR.style.top       = blkBot+'px';
+      tsR.style.transform = 'translateX(2px) translateY(2px)';
       area.appendChild(tsR);
-
-      nm.dataset.blkCX   = blkCX;
-      nm.dataset.blkTop  = blkTop;
-      nm.dataset.blkBot  = blkBot;
-      nm.dataset.blkW    = bw;
-      nm.dataset.trackIdx= ti;
-      nm._durEl = dur;
-      _pendingLabels.push(nm);
     });
 
     // Arrows
@@ -998,7 +928,6 @@ function renderAll(){
   });
 
   renderSidebar();
-  requestAnimationFrame(()=>resolveFloatingLabels(_pendingLabels, blockH));
 }
 
 // ══════════════════════════════════════════════════
