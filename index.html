@@ -258,7 +258,10 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
   display:flex;align-items:center;gap:8px;
   background:var(--sf2);
+  min-height:44px;
+  border-top:2px solid var(--ac); /* garis kuning atas — terlihat di mobile */
 }
+@media(min-width:700px){.sb-head{border-top:none;}}
 .sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
 #kaCountDesk{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
 
@@ -473,7 +476,6 @@ let conflicts     = {};
 let dragId        = null;
 let _pendingLabels= [];
 let _zoomHintTimer= null;
-let _rendering    = false; // guard: mencegah ResizeObserver memicu ulang saat sedang render
 
 // ══════════════════════════════════════════════════
 // LOCAL STORAGE
@@ -710,7 +712,6 @@ function zoom(d){
 // BUILD GRID — uses dynamic colW
 // ══════════════════════════════════════════════════
 function rebuildGrid(){
-  _rendering = true;
   const mpc=ZOOM[zoomIdx], cols=Math.ceil(TOTAL/mpc);
   // Width = LW (fixed jalur label) + cols * colW (dynamic)
   document.getElementById('tlInner').style.minWidth=(LW+cols*colW)+'px';
@@ -751,8 +752,6 @@ function rebuildGrid(){
     row.appendChild(lbl); row.appendChild(grid);
     area.appendChild(row);
   });
-  // Lepas guard setelah 2 frame agar ResizeObserver yg sudah pending tidak memicu render ulang
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{ _rendering = false; }));
 }
 
 // ══════════════════════════════════════════════════
@@ -1460,14 +1459,16 @@ setInterval(()=>{
 },1000);
 
 // ══════════════════════════════════════════════════
-// RESIZE
+// RESIZE — hanya window resize, BUKAN ResizeObserver
+// ResizeObserver dihapus total karena menyebabkan loop:
+// rebuildGrid() → DOM berubah → ResizeObserver trigger →
+// renderAll() hapus blok → blank
 // ══════════════════════════════════════════════════
 let _resizeTimer=null;
-new ResizeObserver(()=>{
-  if(_rendering) return; // sedang rebuild grid — abaikan
+window.addEventListener('resize', ()=>{
   clearTimeout(_resizeTimer);
-  _resizeTimer=setTimeout(()=>{ if(!_rendering) renderAll(); },80);
-}).observe(document.getElementById('tracksArea'));
+  _resizeTimer=setTimeout(()=>{ rebuildGrid(); renderAll(); }, 150);
+});
 
 // ══════════════════════════════════════════════════
 // INIT
