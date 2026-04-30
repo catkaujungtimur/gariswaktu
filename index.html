@@ -443,7 +443,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
-    <button class="btn btn-ghost btn-sm" onclick="exportJSON()">💾</button>
+    <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
     <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
       📂<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
     </label>
@@ -1264,7 +1264,7 @@ function doAdd(){
 // ══════════════════════════════════════════════════
 // SAVE / LOAD / EXPORT
 // ══════════════════════════════════════════════════
-function exportJSON(){
+function exportJSON(btn){
   // Save dari/sampai as integer minutes (not strings) for reliable import
   const exportData=kaData.map(k=>({
     id:k.id, nama:k.nama, warna:k.warna, hidden:!!k.hidden,
@@ -1280,8 +1280,7 @@ function exportJSON(){
   a.href=URL.createObjectURL(blob);
   a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.json';
   a.click();
-  const btn=document.querySelector('[onclick="exportJSON()"]');
-  if(btn){const o=btn.textContent;btn.textContent='✓ Tersimpan';btn.style.color='var(--grn)';
+  if(btn){const o=btn.textContent;btn.textContent='✓';btn.style.color='var(--grn)';
     setTimeout(()=>{btn.textContent=o;btn.style.color='';},2000);}
 }
 
@@ -1356,11 +1355,17 @@ function importJSON(e){
     // Visual feedback on the file input label
     const lbl=document.getElementById('importLbl');
     if(lbl){
-      const inp=lbl.querySelector('input');
-      const orig='📂';
-      lbl.childNodes[0].textContent=`✓ ${kaData.length} KA`;
-      lbl.style.color='var(--grn)';
-      setTimeout(()=>{ lbl.childNodes[0].textContent=orig; lbl.style.color=''; },2500);
+      // Cari text node (bukan elemen <input>) untuk diubah teksnya
+      const txtNode=Array.from(lbl.childNodes).find(n=>n.nodeType===Node.TEXT_NODE);
+      if(txtNode){
+        const orig=txtNode.textContent;
+        txtNode.textContent=`✓ ${kaData.length} KA`;
+        lbl.style.color='var(--grn)';
+        setTimeout(()=>{ txtNode.textContent=orig; lbl.style.color=''; },2500);
+      } else {
+        lbl.style.color='var(--grn)';
+        setTimeout(()=>{ lbl.style.color=''; },2500);
+      }
     }
   };
   r.readAsText(file);
