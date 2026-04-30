@@ -260,8 +260,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 /* Mobile: saat collapsed, hanya sb-head yg tampil (44px), sb-body tersembunyi */
 .sidebar.collapsed-mobile{height:44px;}
 .sidebar.collapsed-mobile .sb-body{display:none;}
-.sidebar.collapsed-mobile .sb-chevron{transform:rotate(0deg);}
-.sidebar.expanded .sb-chevron{transform:rotate(180deg);}
+.sidebar.collapsed-mobile .sb-head{display:none;}
 
 @media(min-width:700px){
   .sidebar{
@@ -295,16 +294,26 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 .sb-head{
   padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  display:flex;align-items:center;gap:8px;
+  display:none;align-items:center;gap:8px;
 }
+@media(min-width:700px){.sb-head{display:flex;}}
 .sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
 #kaCount{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
 
-/* Mobile toggle */
-.sb-mobile-toggle{cursor:pointer;}
-.sb-chevron{margin-left:auto;color:var(--dim);transition:transform .25s;font-size:14px;}
-.sidebar.expanded .sb-chevron{transform:rotate(180deg);}
-@media(min-width:700px){.sb-chevron{display:none;}}
+/* Mobile toggle tab — selalu tampil di atas sidebar */
+.sb-tab{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:10px 12px;
+  background:var(--sf2);border-top:2px solid var(--ac);
+  cursor:pointer;flex-shrink:0;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
+  letter-spacing:2px;color:var(--ac);text-transform:uppercase;
+  user-select:none;
+}
+.sb-tab-chevron{font-size:12px;transition:transform .25s;}
+.sidebar.collapsed-mobile .sb-tab-chevron{transform:rotate(180deg);}
+.sidebar.expanded .sb-tab-chevron{transform:rotate(0deg);}
+@media(min-width:700px){.sb-tab{display:none;}}
 
 /* Desktop collapse button */
 .sb-collapse-btn{
@@ -461,10 +470,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
   <!-- ══ RIGHT: SIDEBAR ══ -->
   <div class="sidebar" id="sidebar">
-    <div class="sb-head sb-mobile-toggle" onclick="toggleSidebar()">
-      <div class="sb-title">Daftar KA</div>
+    <!-- Tab toggle mobile — selalu tampil -->
+    <div class="sb-tab" onclick="toggleSidebar()">
+      <span class="sb-tab-chevron">▲</span>
+      <span>Daftar KA</span>
       <span id="kaCount"></span>
-      <span class="sb-chevron">▲</span>
+    </div>
+    <div class="sb-head">
+      <div class="sb-title">Daftar KA</div>
+      <span id="kaCountDesk"></span>
       <button class="sb-collapse-btn" onclick="toggleSidebarEdge(event)" title="Sembunyikan panel">◀</button>
     </div>
     <div class="sb-body" id="sbBody">
@@ -666,18 +680,11 @@ function initAllTimeInputs(root=document){
 function toggleSidebar(){
   if(window.innerWidth >= 700) return;
   const sb=document.getElementById('sidebar');
-  // Jika sedang expanded → kembali ke normal
-  if(sb.classList.contains('expanded')){
-    sb.classList.remove('expanded');
-    return;
-  }
-  // Jika sedang collapsed-mobile → expand
   if(sb.classList.contains('collapsed-mobile')){
     sb.classList.remove('collapsed-mobile');
-    return;
+  } else {
+    sb.classList.add('collapsed-mobile');
   }
-  // Normal → collapsed-mobile
-  sb.classList.add('collapsed-mobile');
 }
 function toggleSidebarEdge(e){
   e.stopPropagation();
@@ -861,7 +868,8 @@ function resolveFloatingLabels(labels, blockH){
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block').forEach(e=>e.remove());
+  // Hapus semua elemen blok DAN label dari render sebelumnya
+  document.querySelectorAll('.ka-block,.blk-name,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
   _pendingLabels = [];
 
   const area=document.getElementById('tracksArea');
@@ -1088,7 +1096,10 @@ function renderSidebar(){
   list.querySelectorAll('.ka-edit-form.open').forEach(f=>openEdits.add(+f.dataset.id));
 
   list.innerHTML='';
-  document.getElementById('kaCount').textContent=kaData.length+' KA';
+  const countTxt = kaData.length+' KA';
+  document.getElementById('kaCount').textContent = countTxt;
+  const kcd = document.getElementById('kaCountDesk');
+  if(kcd) kcd.textContent = countTxt;
 
   kaData.forEach((ka,idx)=>{
     const isCF=!!conflicts[ka.id];
