@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -117,28 +118,39 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .hcell.minor{color:var(--dim);border-right-color:var(--gridline);font-size:9px;}
 
 /* ── Column resize handle on hour header ── */
-.col-resize-handle{
-  position:absolute;right:0;top:0;width:8px;height:100%;
-  cursor:col-resize;z-index:50;
-  background:transparent;
-  transition:background .15s;
-}
-.col-resize-handle:hover,.col-resize-handle.dragging{
-  background:rgba(240,180,41,.35);
-  border-right:2px solid var(--ac);
-}
-
+.col-resize-handle{display:none;}
 /* ── Row resize handle on track label ── */
-.row-resize-handle{
-  position:absolute;bottom:0;left:0;width:100%;height:6px;
-  cursor:row-resize;z-index:50;
-  background:transparent;
-  transition:background .15s;
+.row-resize-handle{display:none;}
+
+/* ══ VOLUME SLIDERS (lebar kolom & tinggi baris) ══ */
+.vol-wrap{
+  display:flex;align-items:center;gap:3px;
+  background:rgba(255,255,255,.04);border:1px solid var(--bd);
+  border-radius:6px;padding:3px 6px;height:32px;
 }
-.row-resize-handle:hover,.row-resize-handle.dragging{
-  background:rgba(240,180,41,.35);
-  border-bottom:2px solid var(--ac);
+.vol-icon{font-size:11px;color:var(--dim);flex-shrink:0;user-select:none;line-height:1;}
+.vol-slider{
+  -webkit-appearance:none;appearance:none;
+  width:56px;height:4px;border-radius:2px;outline:none;cursor:pointer;
+  background:linear-gradient(to right, var(--ac) 0%, var(--ac) 50%, var(--bd) 50%, var(--bd) 100%);
+  flex-shrink:0;
 }
+.vol-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:14px;height:14px;border-radius:50%;
+  background:var(--ac);cursor:pointer;
+  box-shadow:0 0 0 2px rgba(240,180,41,.3);
+  transition:box-shadow .15s;
+}
+.vol-slider::-webkit-slider-thumb:hover,
+.vol-slider:active::-webkit-slider-thumb{
+  box-shadow:0 0 0 4px rgba(240,180,41,.35);
+}
+.vol-slider::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;border:none;
+  background:var(--ac);cursor:pointer;
+}
+@media(max-width:480px){.vol-slider{width:40px;}}
 
 /* Track rows */
 .tracks-area{
@@ -165,39 +177,45 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ══ BLOCKS ══ */
 .ka-block{
-  position:absolute;border-radius:4px;overflow:visible;
+  position:absolute;border-radius:4px;overflow:hidden;
   cursor:pointer;pointer-events:all;
   border:1.5px solid rgba(255,255,255,.22);
   box-shadow:0 2px 10px rgba(0,0,0,.5);
   transition:filter .15s,box-shadow .15s,opacity .2s;z-index:10;
+  display:flex;flex-direction:column;align-items:stretch;
 }
 .ka-block:hover,.ka-block:active{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4);z-index:11;}
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 .ka-block.hidden-block{opacity:0.18;pointer-events:none;}
 
-.blk-name{
-  position:absolute;text-align:center;
-  font-size:11px;font-weight:700;letter-spacing:0.3px;
-  color:#fff !important;
-  text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.7);
-  pointer-events:none;white-space:nowrap;overflow:visible;z-index:60;
-  background:rgba(0,0,0,.75);border-radius:4px;padding:2px 6px;
-  border:1px solid rgba(255,255,255,.25);
-  transform:translate(-50%,-50%);
-}
-.blk-dur{
-  position:absolute;text-align:center;
+/* Inside-block: top time / name / bottom time */
+.blk-ts-top{
+  flex-shrink:0;
   font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.85);
-  pointer-events:none;white-space:nowrap;overflow:visible;z-index:40;
-  background:rgba(0,0,0,.7);border-radius:2px;padding:0 3px;transform:translateX(-50%);
+  color:rgba(255,255,255,.9);
+  text-align:left;padding:0 4px;
+  line-height:1.6;
+  pointer-events:none;
+  white-space:nowrap;overflow:hidden;
 }
-.blk-ts-l,.blk-ts-r{
-  position:absolute;font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8);
-  white-space:nowrap;pointer-events:none;z-index:40;
-  background:rgba(0,0,0,.88);border-radius:3px;padding:1px 4px;
-  border:1px solid rgba(255,255,255,.15);
+.blk-name{
+  flex:1;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;letter-spacing:0.3px;
+  color:#fff;
+  text-shadow:0 1px 4px rgba(0,0,0,.8);
+  pointer-events:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  padding:0 4px;text-align:center;
+}
+.blk-ts-bot{
+  flex-shrink:0;
+  font-family:'Share Tech Mono',monospace;font-size:9px;
+  color:rgba(255,255,255,.9);
+  text-align:right;padding:0 4px;
+  line-height:1.6;
+  pointer-events:none;
+  white-space:nowrap;overflow:hidden;
 }
 
 #arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
@@ -391,6 +409,20 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <span class="zoom-l" id="zoomLbl">60m</span>
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
+    <!-- Lebar kolom slider -->
+    <div class="vol-wrap" title="Lebar kolom jam">
+      <span class="vol-icon">⟷</span>
+      <input type="range" class="vol-slider" id="sliderColW"
+        min="22" max="160" step="1" value="44"
+        oninput="onSliderColW(this)">
+    </div>
+    <!-- Tinggi baris slider -->
+    <div class="vol-wrap" title="Tinggi baris jalur">
+      <span class="vol-icon">↕</span>
+      <input type="range" class="vol-slider" id="sliderRowH"
+        min="28" max="160" step="1" value="64"
+        oninput="onSliderRowH(this)">
+    </div>
     <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
     <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
@@ -476,7 +508,7 @@ const TOTAL  = 1440;
 const ZOOM   = [60,30,15];
 const LW     = 72;
 const BLK_TOP    = 3;
-const BLK_BOTTOM = 16;
+const BLK_BOTTOM = 3;
 
 // ── Dynamic row height ──
 const ROW_H_MIN = 28;
@@ -573,151 +605,6 @@ function updateUndoRedoBtns(){
   if(r) r.style.opacity=redoStack.length?'1':'0.35';
 }
 
-// ══════════════════════════════════════════════════
-// COLUMN WIDTH DRAG-RESIZE (on hour header)
-// Drag right = wider, drag left = narrower
-// Works on both mouse (PC) and touch (Android)
-// ══════════════════════════════════════════════════
-function initColResizeHandles(){
-  const handles = document.querySelectorAll('.col-resize-handle');
-  handles.forEach(handle=>{
-    // Mouse
-    handle.addEventListener('mousedown', e=>{
-      e.preventDefault(); e.stopPropagation();
-      const startX = e.clientX;
-      const startColW = colW;
-      handle.classList.add('dragging');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-
-      const onMove = ev=>{
-        const dx = ev.clientX - startX;
-        const newColW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, startColW + dx));
-        if(Math.abs(newColW - colW) > 0.5){
-          const scroll = document.getElementById('tlScroll');
-          const ratio = newColW / colW;
-          const sl = scroll.scrollLeft;
-          colW = newColW;
-          rebuildGrid();
-          renderAll();
-          scroll.scrollLeft = sl * ratio;
-          showZoomHint();
-        }
-      };
-      const onUp = ()=>{
-        handle.classList.remove('dragging');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-
-    // Touch
-    handle.addEventListener('touchstart', e=>{
-      e.preventDefault(); e.stopPropagation();
-      const touch = e.touches[0];
-      const startX = touch.clientX;
-      const startColW = colW;
-      handle.classList.add('dragging');
-
-      const onMove = ev=>{
-        ev.preventDefault();
-        const t = ev.touches[0];
-        const dx = t.clientX - startX;
-        const newColW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, startColW + dx));
-        if(Math.abs(newColW - colW) > 0.5){
-          const scroll = document.getElementById('tlScroll');
-          const ratio = newColW / colW;
-          const sl = scroll.scrollLeft;
-          colW = newColW;
-          rebuildGrid();
-          renderAll();
-          scroll.scrollLeft = sl * ratio;
-          showZoomHint();
-        }
-      };
-      const onEnd = ()=>{
-        handle.classList.remove('dragging');
-        document.removeEventListener('touchmove', onMove);
-        document.removeEventListener('touchend', onEnd);
-      };
-      document.addEventListener('touchmove', onMove, {passive:false});
-      document.addEventListener('touchend', onEnd);
-    }, {passive:false});
-  });
-}
-
-// ══════════════════════════════════════════════════
-// ROW HEIGHT DRAG-RESIZE (on track label bottom edge)
-// Drag down = taller, drag up = shorter
-// All rows share the same height (uniform)
-// ══════════════════════════════════════════════════
-function initRowResizeHandles(){
-  const handles = document.querySelectorAll('.row-resize-handle');
-  handles.forEach(handle=>{
-    // Mouse
-    handle.addEventListener('mousedown', e=>{
-      e.preventDefault(); e.stopPropagation();
-      const startY = e.clientY;
-      const startRowH = ROW_H;
-      handle.classList.add('dragging');
-      document.body.style.cursor = 'row-resize';
-      document.body.style.userSelect = 'none';
-
-      const onMove = ev=>{
-        const dy = ev.clientY - startY;
-        const newRowH = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, startRowH + dy));
-        if(Math.abs(newRowH - ROW_H) > 0.5){
-          ROW_H = newRowH;
-          rebuildGrid();
-          renderAll();
-        }
-      };
-      const onUp = ()=>{
-        handle.classList.remove('dragging');
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-
-    // Touch
-    handle.addEventListener('touchstart', e=>{
-      e.preventDefault(); e.stopPropagation();
-      const touch = e.touches[0];
-      const startY = touch.clientY;
-      const startRowH = ROW_H;
-      handle.classList.add('dragging');
-
-      const onMove = ev=>{
-        ev.preventDefault();
-        const t = ev.touches[0];
-        const dy = t.clientY - startY;
-        const newRowH = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, startRowH + dy));
-        if(Math.abs(newRowH - ROW_H) > 0.5){
-          ROW_H = newRowH;
-          rebuildGrid();
-          renderAll();
-        }
-      };
-      const onEnd = ()=>{
-        handle.classList.remove('dragging');
-        document.removeEventListener('touchmove', onMove);
-        document.removeEventListener('touchend', onEnd);
-      };
-      document.addEventListener('touchmove', onMove, {passive:false});
-      document.addEventListener('touchend', onEnd);
-    }, {passive:false});
-  });
-}
-
-
 // Mouse wheel on timeline area changes colW.
 // Ctrl+Wheel or plain Wheel (no Ctrl needed) both work.
 // ══════════════════════════════════════════════════
@@ -759,7 +646,7 @@ function initScrollZoom(){
     rebuildGrid();
     renderAll();
     scroll.scrollLeft = sl * ratio;
-
+    syncSliders();
     showZoomHint();
   }, {passive:false});
 
@@ -875,8 +762,40 @@ function toggleSidebarEdge(e){
 }
 
 // ══════════════════════════════════════════════════
-// ZOOM (minute-interval zoom)
+// VOLUME SLIDER HANDLERS
 // ══════════════════════════════════════════════════
+function onSliderColW(el){
+  const newW = parseFloat(el.value);
+  const scroll = document.getElementById('tlScroll');
+  const ratio = newW / colW;
+  const sl = scroll.scrollLeft;
+  colW = newW;
+  updateSliderTrack(el, COL_W_MIN, COL_W_MAX);
+  rebuildGrid();
+  renderAll();
+  scroll.scrollLeft = sl * ratio;
+}
+
+function onSliderRowH(el){
+  ROW_H = parseFloat(el.value);
+  updateSliderTrack(el, ROW_H_MIN, ROW_H_MAX);
+  rebuildGrid();
+  renderAll();
+}
+
+function updateSliderTrack(el, min, max){
+  const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+  el.style.background = `linear-gradient(to right, var(--ac) 0%, var(--ac) ${pct}%, var(--bd) ${pct}%, var(--bd) 100%)`;
+}
+
+function syncSliders(){
+  const sc = document.getElementById('sliderColW');
+  const sr = document.getElementById('sliderRowH');
+  if(sc){ sc.value = colW; updateSliderTrack(sc, COL_W_MIN, COL_W_MAX); }
+  if(sr){ sr.value = ROW_H; updateSliderTrack(sr, ROW_H_MIN, ROW_H_MAX); }
+}
+
+
 function zoom(d){
   zoomIdx=Math.max(0,Math.min(ZOOM.length-1,zoomIdx+d));
   document.getElementById('zoomLbl').textContent=ZOOM[zoomIdx]+'m';
@@ -939,9 +858,6 @@ function rebuildGrid(){
     row.appendChild(lbl); row.appendChild(grid);
     area.appendChild(row);
   });
-  // Attach drag-resize handlers after DOM is built
-  initColResizeHandles();
-  initRowResizeHandles();
 }
 
 // ══════════════════════════════════════════════════
@@ -1038,7 +954,7 @@ function resolveFloatingLabels(labels, blockH){
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block,.blk-name,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
+  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -1073,73 +989,63 @@ function renderAll(){
 
       if(isHidden) return;
 
-      const renderBlock=(fromM, toM)=>{
+      const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
+
+      const renderBlock=(fromM, toM, showLabels)=>{
         const gx=minsToGridX(fromM);
         const bw=minsToGridX(toM)-gx;
         if(bw<=0) return;
+
         const block=document.createElement('div');
         block.className='ka-block'+(isCF?' cf':'')+(isHidden?' hidden-block':'');
         block.style.cssText=[
-          `left:${LW+gx}px`,`top:${rowY+BLK_TOP}px`,
-          `width:${bw}px`,`height:${blockH}px`,
-          `background:${ka.warna}`,`color:#fff`,
+          `left:${LW+gx}px`,
+          `top:${rowY+BLK_TOP}px`,
+          `width:${bw}px`,
+          `height:${blockH}px`,
+          `background:${ka.warna}`,
         ].join(';');
         block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
         block.addEventListener('mouseleave',hideTT);
+
+        if(showLabels){
+          // Top: jam masuk
+          const tsTop=document.createElement('div');
+          tsTop.className='blk-ts-top';
+          tsTop.textContent=fmt(fromM);
+          block.appendChild(tsTop);
+
+          // Middle: nama KA
+          const nm=document.createElement('div');
+          nm.className='blk-name';
+          nm.textContent=ka.nama;
+          block.appendChild(nm);
+
+          // Bottom: jam keluar
+          const tsBot=document.createElement('div');
+          tsBot.className='blk-ts-bot';
+          tsBot.textContent=crossMidnight&&fromM===seg.dari ? sampaiDisplay : fmt(toM);
+          block.appendChild(tsBot);
+        } else {
+          // Continuation block (cross-midnight part) — show name only
+          const nm=document.createElement('div');
+          nm.className='blk-name';
+          nm.textContent=ka.nama;
+          block.appendChild(nm);
+        }
+
         area.appendChild(block);
         return {gx,bw};
       };
 
-      const part1=renderBlock(seg.dari, sampaiClamped);
-      if(crossMidnight) renderBlock(0, seg.sampai - TOTAL);
+      const part1=renderBlock(seg.dari, sampaiClamped, true);
+      if(crossMidnight) renderBlock(0, seg.sampai - TOTAL, false);
       if(!part1) return;
 
       const {gx, bw} = part1;
       const blkCX = LW + gx + bw/2;
       const blkTop = rowY + BLK_TOP;
       const blkBot = rowY + BLK_TOP + blockH;
-      const blkCY  = rowY + BLK_TOP + blockH/2;
-
-      const nm=document.createElement('span');
-      nm.className='blk-name';
-      nm.textContent=ka.nama;
-      nm.style.left = blkCX+'px';
-      nm.style.top  = blkCY+'px';
-      // Always centered — transform:translate(-50%,-50%) keeps it in block center
-      area.appendChild(nm);
-
-      const dur=document.createElement('span');
-      dur.className='blk-dur';
-      dur.textContent=durLabel(seg.dari, seg.sampai);
-      dur.style.left = blkCX+'px';
-      dur.style.top  = (blkBot+2)+'px';
-      area.appendChild(dur);
-
-      const tsL=document.createElement('span');
-      tsL.className='blk-ts-l';
-      tsL.textContent=fmt(seg.dari);
-      tsL.style.top  = blkTop+'px';
-      tsL.style.left = (LW+gx)+'px';
-      tsL.style.transform = 'translateX(-100%) translateX(-3px)';
-      area.appendChild(tsL);
-
-      const tsR=document.createElement('span');
-      tsR.className='blk-ts-r';
-      const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
-      tsR.textContent=sampaiDisplay;
-      tsR.style.bottom = 'auto';
-      // Align bottom-right: position so bottom of label aligns with bottom of block
-      tsR.style.top    = (blkBot - 18)+'px';
-      const tsRX = crossMidnight ? LW + minsToGridX(seg.sampai - TOTAL) + 3 : LW + gx + bw + 3;
-      tsR.style.left = tsRX+'px';
-      area.appendChild(tsR);
-
-      nm.dataset.blkCX   = blkCX;
-      nm.dataset.blkTop  = blkTop;
-      nm.dataset.blkBot  = blkBot;
-      nm.dataset.blkW    = bw;
-      nm.dataset.trackIdx= ti;
-      nm._durEl = dur;
     });
 
     // Arrows
@@ -1668,6 +1574,7 @@ new ResizeObserver(()=>{
 // ══════════════════════════════════════════════════
 kaData=[];
 loadLocal();
+syncSliders();
 
 document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
