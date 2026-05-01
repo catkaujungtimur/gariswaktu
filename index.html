@@ -188,6 +188,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ── Label overlays — menembus keluar blok, z-index tinggi ── */
 /* Jam masuk: kiri atas, boleh menembus ke kiri */
+/* Jam masuk: di luar kiri blok, mepet, sejajar atas */
 .blk-ts-top{
   position:absolute;
   font-family:'Share Tech Mono',monospace;
@@ -195,11 +196,10 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
   border:1px solid rgba(255,255,255,.12);
   z-index:50;
-  top:0; left:0;
+  top:0;
+  right:100%;
+  margin-right:2px;
   line-height:1.5;
-  /* max-width di-set via JS = bw/2 px → tidak melewati tengah blok */
-  overflow:hidden;
-  text-overflow:clip;
 }
 /* Nama KA: tengah blok, boleh menembus ke kanan dan kiri */
 .blk-name{
@@ -212,7 +212,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   top:50%; left:50%;
   transform:translate(-50%,-50%);
 }
-/* Jam keluar: kanan bawah, boleh menembus ke kanan */
+/* Jam keluar: di luar kanan blok, mepet, sejajar bawah */
 .blk-ts-bot{
   position:absolute;
   font-family:'Share Tech Mono',monospace;
@@ -220,11 +220,10 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
   border:1px solid rgba(255,255,255,.12);
   z-index:50;
-  bottom:0; right:0;
+  bottom:0;
+  left:100%;
+  margin-left:2px;
   line-height:1.5;
-  /* max-width di-set via JS = bw/2 px → tidak melewati tengah blok */
-  overflow:hidden;
-  text-overflow:clip;
 }
 
 #arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
@@ -1052,8 +1051,6 @@ function renderAll(){
           tsTop.className='blk-ts-top';
           tsTop.textContent=fmt(fromM);
           tsTop.style.fontSize = tsz+'px';
-          // max-width = setengah lebar blok agar tidak melewati tengah ke kanan
-          tsTop.style.maxWidth = Math.max(8, bw/2)+'px';
           block.appendChild(tsTop);
 
           // Nama KA — tengah, menembus kanan & kiri
@@ -1068,8 +1065,6 @@ function renderAll(){
           tsBot.className='blk-ts-bot';
           tsBot.textContent=crossMidnight&&!isContd ? sampaiDisplay : fmt(toM);
           tsBot.style.fontSize = tsz+'px';
-          // max-width = setengah lebar blok agar tidak melewati tengah ke kiri
-          tsBot.style.maxWidth = Math.max(8, bw/2)+'px';
           block.appendChild(tsBot);
         } else {
           // Blok lanjutan (cross-midnight) — nama saja di tengah
