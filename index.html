@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -177,45 +176,54 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ══ BLOCKS ══ */
 .ka-block{
-  position:absolute;border-radius:4px;overflow:hidden;
+  position:absolute;border-radius:4px;overflow:visible;
   cursor:pointer;pointer-events:all;
   border:1.5px solid rgba(255,255,255,.22);
   box-shadow:0 2px 10px rgba(0,0,0,.5);
   transition:filter .15s,box-shadow .15s,opacity .2s;z-index:10;
-  display:flex;flex-direction:column;align-items:stretch;
 }
 .ka-block:hover,.ka-block:active{filter:brightness(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.4);z-index:11;}
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 .ka-block.hidden-block{opacity:0.18;pointer-events:none;}
 
-/* Inside-block: top time / name / bottom time */
+/* ── Label overlays — menembus keluar blok, z-index tinggi ── */
+/* Jam masuk: kiri atas, boleh menembus ke kiri */
 .blk-ts-top{
-  flex-shrink:0;
-  font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.9);
-  text-align:left;padding:0 4px;
-  line-height:1.6;
-  pointer-events:none;
-  white-space:nowrap;overflow:hidden;
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:50;
+  /* anchor: top-left of block, text hangs left */
+  top:0; left:0;
+  transform:translateY(0);
+  line-height:1.5;
 }
+/* Nama KA: tengah blok, boleh menembus ke kanan dan kiri */
 .blk-name{
-  flex:1;
-  display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;letter-spacing:0.3px;
-  color:#fff;
-  text-shadow:0 1px 4px rgba(0,0,0,.8);
-  pointer-events:none;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  padding:0 4px;text-align:center;
+  position:absolute;
+  font-weight:700;letter-spacing:0.3px;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:4px;padding:2px 6px;
+  border:1px solid rgba(255,255,255,.18);
+  z-index:51;
+  /* centered horizontally on block midpoint, vertically centered */
+  top:50%; left:50%;
+  transform:translate(-50%,-50%);
 }
+/* Jam keluar: kanan bawah, boleh menembus ke kanan */
 .blk-ts-bot{
-  flex-shrink:0;
-  font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.9);
-  text-align:right;padding:0 4px;
-  line-height:1.6;
-  pointer-events:none;
-  white-space:nowrap;overflow:hidden;
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:50;
+  /* anchor: bottom-right of block, text hangs right */
+  bottom:0; right:0;
+  transform:translateX(0);
+  line-height:1.5;
 }
 
 #arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
@@ -423,6 +431,13 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
         min="28" max="160" step="1" value="64"
         oninput="onSliderRowH(this)">
     </div>
+    <!-- Ukuran font slider -->
+    <div class="vol-wrap" title="Ukuran font label blok">
+      <span class="vol-icon">Ａ</span>
+      <input type="range" class="vol-slider" id="sliderFont"
+        min="7" max="18" step="1" value="11"
+        oninput="onSliderFont(this)">
+    </div>
     <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
     <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
@@ -516,6 +531,12 @@ const ROW_H_MAX = 160;
 const ROW_H_DEF = 64;
 let ROW_H = ROW_H_DEF;
 
+// ── Dynamic font size for block labels ──
+const FONT_MIN = 7;
+const FONT_MAX = 18;
+const FONT_DEF = 11;
+let FONT_SZ = FONT_DEF;
+
 // ── Dynamic column width (scroll-to-zoom) ──
 // Range: 22px (very zoomed out) – 160px (very zoomed in)
 const COL_W_MIN = 22;
@@ -541,6 +562,7 @@ function saveLocal(){
     localStorage.setItem(LS_KEY+'_zoom', zoomIdx);
     localStorage.setItem(LS_KEY+'_colW', colW);
     localStorage.setItem(LS_KEY+'_rowH', ROW_H);
+    localStorage.setItem(LS_KEY+'_fontSz', FONT_SZ);
   } catch(e){}
 }
 
@@ -558,6 +580,10 @@ function loadLocal(){
     }
     if(rh !== null && !isNaN(parseFloat(rh))){
       ROW_H = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, parseFloat(rh)));
+    }
+    const fs = localStorage.getItem(LS_KEY+'_fontSz');
+    if(fs !== null && !isNaN(parseFloat(fs))){
+      FONT_SZ = Math.max(FONT_MIN, Math.min(FONT_MAX, parseFloat(fs)));
     }
     if(!raw) return false;
     const parsed = JSON.parse(raw);
@@ -788,11 +814,19 @@ function updateSliderTrack(el, min, max){
   el.style.background = `linear-gradient(to right, var(--ac) 0%, var(--ac) ${pct}%, var(--bd) ${pct}%, var(--bd) 100%)`;
 }
 
+function onSliderFont(el){
+  FONT_SZ = parseFloat(el.value);
+  updateSliderTrack(el, FONT_MIN, FONT_MAX);
+  renderAll();
+}
+
 function syncSliders(){
   const sc = document.getElementById('sliderColW');
   const sr = document.getElementById('sliderRowH');
+  const sf = document.getElementById('sliderFont');
   if(sc){ sc.value = colW; updateSliderTrack(sc, COL_W_MIN, COL_W_MAX); }
   if(sr){ sr.value = ROW_H; updateSliderTrack(sr, ROW_H_MIN, ROW_H_MAX); }
+  if(sf){ sf.value = FONT_SZ; updateSliderTrack(sf, FONT_MIN, FONT_MAX); }
 }
 
 
@@ -991,7 +1025,7 @@ function renderAll(){
 
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
 
-      const renderBlock=(fromM, toM, showLabels)=>{
+      const renderBlock=(fromM, toM, showLabels, isContd)=>{
         const gx=minsToGridX(fromM);
         const bw=minsToGridX(toM)-gx;
         if(bw<=0) return;
@@ -1008,29 +1042,36 @@ function renderAll(){
         block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
         block.addEventListener('mouseleave',hideTT);
 
+        const tsz = FONT_SZ;
+        const nmsz = Math.round(tsz * 1.2); // nama sedikit lebih besar
+
         if(showLabels){
-          // Top: jam masuk
+          // Jam masuk — kiri atas, menembus ke kiri
           const tsTop=document.createElement('div');
           tsTop.className='blk-ts-top';
           tsTop.textContent=fmt(fromM);
+          tsTop.style.fontSize = tsz+'px';
           block.appendChild(tsTop);
 
-          // Middle: nama KA
+          // Nama KA — tengah, menembus kanan & kiri
           const nm=document.createElement('div');
           nm.className='blk-name';
           nm.textContent=ka.nama;
+          nm.style.fontSize = nmsz+'px';
           block.appendChild(nm);
 
-          // Bottom: jam keluar
+          // Jam keluar — kanan bawah, menembus ke kanan
           const tsBot=document.createElement('div');
           tsBot.className='blk-ts-bot';
-          tsBot.textContent=crossMidnight&&fromM===seg.dari ? sampaiDisplay : fmt(toM);
+          tsBot.textContent=crossMidnight&&!isContd ? sampaiDisplay : fmt(toM);
+          tsBot.style.fontSize = tsz+'px';
           block.appendChild(tsBot);
         } else {
-          // Continuation block (cross-midnight part) — show name only
+          // Blok lanjutan (cross-midnight) — nama saja di tengah
           const nm=document.createElement('div');
           nm.className='blk-name';
           nm.textContent=ka.nama;
+          nm.style.fontSize = nmsz+'px';
           block.appendChild(nm);
         }
 
@@ -1038,8 +1079,8 @@ function renderAll(){
         return {gx,bw};
       };
 
-      const part1=renderBlock(seg.dari, sampaiClamped, true);
-      if(crossMidnight) renderBlock(0, seg.sampai - TOTAL, false);
+      const part1=renderBlock(seg.dari, sampaiClamped, true, false);
+      if(crossMidnight) renderBlock(0, seg.sampai - TOTAL, true, true);
       if(!part1) return;
 
       const {gx, bw} = part1;
