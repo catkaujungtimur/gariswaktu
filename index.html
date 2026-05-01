@@ -80,7 +80,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   border-radius:10px;border:4px solid #0d1018;min-width:60px;
 }
 .tl-scroll::-webkit-scrollbar-thumb:hover{background:linear-gradient(to bottom,#6a70a0,#3a3f60);}
-.tl-inner{display:flex;flex-direction:column;min-height:100%;}
+.tl-inner{display:flex;flex-direction:column;min-height:100%;padding-bottom:28px;}
 
 /* ── Zoom hint overlay ── */
 #zoomHint{
@@ -226,7 +226,20 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   line-height:1.5;
 }
 
-#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
+/* Durasi: di luar bawah blok, mepet, center */
+.blk-dur{
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 5px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:50;
+  top:100%;
+  left:50%;
+  transform:translateX(-50%);
+  margin-top:2px;
+  line-height:1.5;
+}
 
 #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   text-align:center;color:var(--dim);pointer-events:none;}
@@ -412,6 +425,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
     <button class="btn btn-ghost btn-sm" id="btnRedo" onclick="redo()" title="Redo" style="opacity:0.35;">↪</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAll()" title="Reset semua data" style="color:var(--red);border-color:var(--red);">⊘</button>
     <div id="cfBadge" onclick="toggleCF()">⚠ KONFLIK</div>
+    <button class="btn btn-ghost btn-sm" id="btnToggleKA" onclick="toggleKAList()" title="Tampilkan/sembunyikan daftar KA" style="font-size:13px;padding:5px 8px;">▼ KA</button>
     <div class="zoom-c">
       <button class="btn btn-ghost btn-icon" onclick="zoom(-1)">−</button>
       <span class="zoom-l" id="zoomLbl">60m</span>
@@ -522,8 +536,8 @@ const JALUR  = ['I','II','III','IV','V','VI'];
 const TOTAL  = 1440;
 const ZOOM   = [60,30,15];
 const LW     = 72;
-const BLK_TOP    = 3;
-const BLK_BOTTOM = 3;
+const BLK_TOP    = 4;
+const BLK_BOTTOM = 22;
 
 // ── Dynamic row height ──
 const ROW_H_MIN = 28;
@@ -923,6 +937,41 @@ function detectConflicts(){
 function toggleCF(){document.getElementById('cfPanel').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════
+// TOGGLE DAFTAR KA (chevron di header)
+// ══════════════════════════════════════════════════
+function toggleKAList(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('btnToggleKA');
+  const isHidden = sb.dataset.kaHidden === '1';
+  if(isHidden){
+    sb.dataset.kaHidden = '0';
+    sb.style.display = '';
+    btn.textContent = '▼ KA';
+    try{ localStorage.setItem(LS_KEY+'_kaHidden','0'); } catch(e){}
+  } else {
+    sb.dataset.kaHidden = '1';
+    sb.style.display = 'none';
+    btn.textContent = '▶ KA';
+    try{ localStorage.setItem(LS_KEY+'_kaHidden','1'); } catch(e){}
+  }
+}
+
+function applyKAListState(){
+  const saved = localStorage.getItem(LS_KEY+'_kaHidden');
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('btnToggleKA');
+  if(saved === '1'){
+    sb.dataset.kaHidden = '1';
+    sb.style.display = 'none';
+    btn.textContent = '▶ KA';
+  } else {
+    sb.dataset.kaHidden = '0';
+    sb.style.display = '';
+    btn.textContent = '▼ KA';
+  }
+}
+
+// ══════════════════════════════════════════════════
 // FLOATING LABEL COLLISION RESOLUTION
 // ══════════════════════════════════════════════════
 function resolveFloatingLabels(labels, blockH){
@@ -988,7 +1037,7 @@ function resolveFloatingLabels(labels, blockH){
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
+  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur').forEach(e=>e.remove());
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -1046,7 +1095,7 @@ function renderAll(){
         const nmsz = Math.round(tsz * 1.2); // nama sedikit lebih besar
 
         if(showLabels){
-          // Jam masuk — kiri atas, menembus ke kiri, tidak melewati tengah blok
+          // Jam masuk — kiri atas, menembus ke kiri
           const tsTop=document.createElement('div');
           tsTop.className='blk-ts-top';
           tsTop.textContent=fmt(fromM);
@@ -1060,12 +1109,21 @@ function renderAll(){
           nm.style.fontSize = nmsz+'px';
           block.appendChild(nm);
 
-          // Jam keluar — kanan bawah, menembus ke kanan, tidak melewati tengah blok
+          // Jam keluar — kanan bawah, menembus ke kanan
           const tsBot=document.createElement('div');
           tsBot.className='blk-ts-bot';
           tsBot.textContent=crossMidnight&&!isContd ? sampaiDisplay : fmt(toM);
           tsBot.style.fontSize = tsz+'px';
           block.appendChild(tsBot);
+
+          // Durasi — di luar bawah blok, di tengah
+          if(!isContd){
+            const dur=document.createElement('div');
+            dur.className='blk-dur';
+            dur.textContent=durLabel(seg.dari, seg.sampai);
+            dur.style.fontSize = tsz+'px';
+            block.appendChild(dur);
+          }
         } else {
           // Blok lanjutan (cross-midnight) — nama saja di tengah
           const nm=document.createElement('div');
@@ -1616,6 +1674,7 @@ new ResizeObserver(()=>{
 kaData=[];
 loadLocal();
 syncSliders();
+applyKAListState();
 
 document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
