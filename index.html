@@ -111,9 +111,34 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   font-family:'Share Tech Mono',monospace;color:var(--dim);
   border-right:1px solid var(--bd);user-select:none;
+  position:relative;
 }
 .hcell.major{color:var(--txt);font-size:11px;}
 .hcell.minor{color:var(--dim);border-right-color:var(--gridline);font-size:9px;}
+
+/* ── Column resize handle on hour header ── */
+.col-resize-handle{
+  position:absolute;right:0;top:0;width:8px;height:100%;
+  cursor:col-resize;z-index:50;
+  background:transparent;
+  transition:background .15s;
+}
+.col-resize-handle:hover,.col-resize-handle.dragging{
+  background:rgba(240,180,41,.35);
+  border-right:2px solid var(--ac);
+}
+
+/* ── Row resize handle on track label ── */
+.row-resize-handle{
+  position:absolute;bottom:0;left:0;width:100%;height:6px;
+  cursor:row-resize;z-index:50;
+  background:transparent;
+  transition:background .15s;
+}
+.row-resize-handle:hover,.row-resize-handle.dragging{
+  background:rgba(240,180,41,.35);
+  border-bottom:2px solid var(--ac);
+}
 
 /* Track rows */
 .tracks-area{
@@ -121,7 +146,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   position:relative;display:flex;flex-direction:column;
 }
 .track-row{
-  height:var(--ROW);min-height:var(--ROW);flex-shrink:0;
+  min-height:var(--ROW);flex-shrink:0;
   display:flex;border-bottom:1px solid var(--gridline);position:relative;overflow:visible;
 }
 .track-row.cuci .track-label{background:rgba(0,194,255,.07);color:var(--ac2);}
@@ -132,6 +157,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:var(--sf2);border-right:2px solid var(--bd);
   position:sticky;left:0;z-index:10;text-transform:uppercase;
   box-shadow:2px 0 6px rgba(0,0,0,.4);
+  overflow:visible;
 }
 .track-grid{position:relative;flex:1;display:flex;overflow:visible;}
 .gcell{border-right:1px solid var(--gridline);height:100%;flex-shrink:0;}
@@ -156,23 +182,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.7);
   pointer-events:none;white-space:nowrap;overflow:visible;z-index:60;
   background:rgba(0,0,0,.75);border-radius:4px;padding:2px 6px;
-  border:1px solid rgba(255,255,255,.25);transform:translate(-50%,-50%);
-}
-.blk-name.above{
-  background:rgba(8,10,18,.95);border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);z-index:60;transform:translateX(-50%);
-}
-.blk-name.above::after{
-  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-top-color:rgba(8,10,18,.95);
-}
-.blk-name.below{
-  background:rgba(8,10,18,.95);border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);z-index:60;transform:translateX(-50%);
-}
-.blk-name.below::before{
-  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-bottom-color:rgba(8,10,18,.95);
+  border:1px solid rgba(255,255,255,.25);
+  transform:translate(-50%,-50%);
 }
 .blk-dur{
   position:absolute;text-align:center;
@@ -464,9 +475,14 @@ const JALUR  = ['I','II','III','IV','V','VI'];
 const TOTAL  = 1440;
 const ZOOM   = [60,30,15];
 const LW     = 72;
-const ROW_H  = 64;
 const BLK_TOP    = 3;
 const BLK_BOTTOM = 16;
+
+// ── Dynamic row height ──
+const ROW_H_MIN = 28;
+const ROW_H_MAX = 160;
+const ROW_H_DEF = 64;
+let ROW_H = ROW_H_DEF;
 
 // ── Dynamic column width (scroll-to-zoom) ──
 // Range: 22px (very zoomed out) – 160px (very zoomed in)
@@ -492,6 +508,7 @@ function saveLocal(){
     localStorage.setItem(LS_KEY, JSON.stringify(kaData));
     localStorage.setItem(LS_KEY+'_zoom', zoomIdx);
     localStorage.setItem(LS_KEY+'_colW', colW);
+    localStorage.setItem(LS_KEY+'_rowH', ROW_H);
   } catch(e){}
 }
 
@@ -500,11 +517,15 @@ function loadLocal(){
     const raw = localStorage.getItem(LS_KEY);
     const zi  = localStorage.getItem(LS_KEY+'_zoom');
     const cw  = localStorage.getItem(LS_KEY+'_colW');
+    const rh  = localStorage.getItem(LS_KEY+'_rowH');
     if(zi !== null && !isNaN(parseInt(zi))){
       zoomIdx = Math.max(0, Math.min(ZOOM.length-1, parseInt(zi)));
     }
     if(cw !== null && !isNaN(parseFloat(cw))){
       colW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, parseFloat(cw)));
+    }
+    if(rh !== null && !isNaN(parseFloat(rh))){
+      ROW_H = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, parseFloat(rh)));
     }
     if(!raw) return false;
     const parsed = JSON.parse(raw);
@@ -553,7 +574,150 @@ function updateUndoRedoBtns(){
 }
 
 // ══════════════════════════════════════════════════
-// SCROLL-TO-ZOOM COLUMN WIDTH
+// COLUMN WIDTH DRAG-RESIZE (on hour header)
+// Drag right = wider, drag left = narrower
+// Works on both mouse (PC) and touch (Android)
+// ══════════════════════════════════════════════════
+function initColResizeHandles(){
+  const handles = document.querySelectorAll('.col-resize-handle');
+  handles.forEach(handle=>{
+    // Mouse
+    handle.addEventListener('mousedown', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const startX = e.clientX;
+      const startColW = colW;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = ev=>{
+        const dx = ev.clientX - startX;
+        const newColW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, startColW + dx));
+        if(Math.abs(newColW - colW) > 0.5){
+          const scroll = document.getElementById('tlScroll');
+          const ratio = newColW / colW;
+          const sl = scroll.scrollLeft;
+          colW = newColW;
+          rebuildGrid();
+          renderAll();
+          scroll.scrollLeft = sl * ratio;
+          showZoomHint();
+        }
+      };
+      const onUp = ()=>{
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // Touch
+    handle.addEventListener('touchstart', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const touch = e.touches[0];
+      const startX = touch.clientX;
+      const startColW = colW;
+      handle.classList.add('dragging');
+
+      const onMove = ev=>{
+        ev.preventDefault();
+        const t = ev.touches[0];
+        const dx = t.clientX - startX;
+        const newColW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, startColW + dx));
+        if(Math.abs(newColW - colW) > 0.5){
+          const scroll = document.getElementById('tlScroll');
+          const ratio = newColW / colW;
+          const sl = scroll.scrollLeft;
+          colW = newColW;
+          rebuildGrid();
+          renderAll();
+          scroll.scrollLeft = sl * ratio;
+          showZoomHint();
+        }
+      };
+      const onEnd = ()=>{
+        handle.classList.remove('dragging');
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+      };
+      document.addEventListener('touchmove', onMove, {passive:false});
+      document.addEventListener('touchend', onEnd);
+    }, {passive:false});
+  });
+}
+
+// ══════════════════════════════════════════════════
+// ROW HEIGHT DRAG-RESIZE (on track label bottom edge)
+// Drag down = taller, drag up = shorter
+// All rows share the same height (uniform)
+// ══════════════════════════════════════════════════
+function initRowResizeHandles(){
+  const handles = document.querySelectorAll('.row-resize-handle');
+  handles.forEach(handle=>{
+    // Mouse
+    handle.addEventListener('mousedown', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const startY = e.clientY;
+      const startRowH = ROW_H;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = ev=>{
+        const dy = ev.clientY - startY;
+        const newRowH = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, startRowH + dy));
+        if(Math.abs(newRowH - ROW_H) > 0.5){
+          ROW_H = newRowH;
+          rebuildGrid();
+          renderAll();
+        }
+      };
+      const onUp = ()=>{
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    // Touch
+    handle.addEventListener('touchstart', e=>{
+      e.preventDefault(); e.stopPropagation();
+      const touch = e.touches[0];
+      const startY = touch.clientY;
+      const startRowH = ROW_H;
+      handle.classList.add('dragging');
+
+      const onMove = ev=>{
+        ev.preventDefault();
+        const t = ev.touches[0];
+        const dy = t.clientY - startY;
+        const newRowH = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, startRowH + dy));
+        if(Math.abs(newRowH - ROW_H) > 0.5){
+          ROW_H = newRowH;
+          rebuildGrid();
+          renderAll();
+        }
+      };
+      const onEnd = ()=>{
+        handle.classList.remove('dragging');
+        document.removeEventListener('touchmove', onMove);
+        document.removeEventListener('touchend', onEnd);
+      };
+      document.addEventListener('touchmove', onMove, {passive:false});
+      document.addEventListener('touchend', onEnd);
+    }, {passive:false});
+  });
+}
+
+
 // Mouse wheel on timeline area changes colW.
 // Ctrl+Wheel or plain Wheel (no Ctrl needed) both work.
 // ══════════════════════════════════════════════════
@@ -741,6 +905,11 @@ function rebuildGrid(){
     } else {
       el.textContent=':'+String(mins%60).padStart(2,'0');
     }
+    // Column resize handle (only on the last cell of each "hour group" or every cell)
+    const colHandle=document.createElement('div');
+    colHandle.className='col-resize-handle';
+    colHandle.title='Geser kanan/kiri untuk ubah lebar kolom';
+    el.appendChild(colHandle);
     hc.appendChild(el);
   }
   const area=document.getElementById('tracksArea');
@@ -749,8 +918,15 @@ function rebuildGrid(){
     const row=document.createElement('div');
     row.className='track-row'+(CUCI.includes(tr)?' cuci':'');
     row.dataset.track=tr;
+    row.style.height=ROW_H+'px';
+    row.style.minHeight=ROW_H+'px';
     const lbl=document.createElement('div');
     lbl.className='track-label';lbl.textContent=tr;
+    // Row resize handle
+    const rowHandle=document.createElement('div');
+    rowHandle.className='row-resize-handle';
+    rowHandle.title='Geser bawah/atas untuk ubah tinggi baris';
+    lbl.appendChild(rowHandle);
     const grid=document.createElement('div');
     grid.className='track-grid';
     for(let c=0;c<cols;c++){
@@ -763,6 +939,9 @@ function rebuildGrid(){
     row.appendChild(lbl); row.appendChild(grid);
     area.appendChild(row);
   });
+  // Attach drag-resize handlers after DOM is built
+  initColResizeHandles();
+  initRowResizeHandles();
 }
 
 // ══════════════════════════════════════════════════
@@ -860,7 +1039,6 @@ function renderAll(){
   saveLocal();
   detectConflicts();
   document.querySelectorAll('.ka-block,.blk-name,.blk-dur,.blk-ts-l,.blk-ts-r').forEach(e=>e.remove());
-  _pendingLabels = [];
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -927,6 +1105,7 @@ function renderAll(){
       nm.textContent=ka.nama;
       nm.style.left = blkCX+'px';
       nm.style.top  = blkCY+'px';
+      // Always centered — transform:translate(-50%,-50%) keeps it in block center
       area.appendChild(nm);
 
       const dur=document.createElement('span');
@@ -949,7 +1128,8 @@ function renderAll(){
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
       tsR.textContent=sampaiDisplay;
       tsR.style.bottom = 'auto';
-      tsR.style.top    = (blkBot - 20)+'px';
+      // Align bottom-right: position so bottom of label aligns with bottom of block
+      tsR.style.top    = (blkBot - 18)+'px';
       const tsRX = crossMidnight ? LW + minsToGridX(seg.sampai - TOTAL) + 3 : LW + gx + bw + 3;
       tsR.style.left = tsRX+'px';
       area.appendChild(tsR);
@@ -960,7 +1140,6 @@ function renderAll(){
       nm.dataset.blkW    = bw;
       nm.dataset.trackIdx= ti;
       nm._durEl = dur;
-      _pendingLabels.push(nm);
     });
 
     // Arrows
@@ -1009,7 +1188,6 @@ function renderAll(){
   });
 
   renderSidebar();
-  requestAnimationFrame(()=>resolveFloatingLabels(_pendingLabels, blockH));
 }
 
 // ══════════════════════════════════════════════════
