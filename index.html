@@ -941,6 +941,19 @@ function toggleSidebarEdge(e){
 // ══════════════════════════════════════════════════
 // VOLUME SLIDER HANDLERS
 // ══════════════════════════════════════════════════
+
+// Wrapper: beri browser 1 frame untuk settle layout sebelum renderAll
+// Mencegah blok hilang saat rebuildGrid() diikuti renderAll() langsung
+function rebuildThenRender(afterCb){
+  rebuildGrid();
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      renderAll();
+      if(afterCb) afterCb();
+    });
+  });
+}
+
 function onSliderColW(el){
   const newW = parseFloat(el.value);
   const scroll = document.getElementById('tlScroll');
@@ -948,16 +961,13 @@ function onSliderColW(el){
   const sl = scroll.scrollLeft;
   colW = newW;
   updateSliderTrack(el, COL_W_MIN, COL_W_MAX);
-  rebuildGrid();
-  renderAll();
-  scroll.scrollLeft = sl * ratio;
+  rebuildThenRender(()=>{ scroll.scrollLeft = sl * ratio; });
 }
 
 function onSliderRowH(el){
   ROW_H = parseFloat(el.value);
   updateSliderTrack(el, ROW_H_MIN, ROW_H_MAX);
-  rebuildGrid();
-  renderAll();
+  rebuildThenRender();
 }
 
 function updateSliderTrack(el, min, max){
@@ -999,7 +1009,7 @@ function syncSliders(){
 function zoom(d){
   zoomIdx=Math.max(0,Math.min(ZOOM.length-1,zoomIdx+d));
   document.getElementById('zoomLbl').textContent=ZOOM[zoomIdx]+'m';
-  rebuildGrid(); renderAll();
+  rebuildThenRender();
 }
 
 // ══════════════════════════════════════════════════
@@ -1751,8 +1761,7 @@ function importJSON(e){
     redoStack=[];
     updateUndoRedoBtns();
     kaData=parsed;
-    rebuildGrid();
-    renderAll();
+    rebuildThenRender();
     const sc=document.getElementById('tlScroll');
     if(sc){sc.scrollLeft=0;sc.scrollTop=0;}
     const lbl=document.getElementById('importLbl');
@@ -1830,8 +1839,7 @@ applyKAListState();
 
 document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
-rebuildGrid();
-renderAll();
+rebuildThenRender();
 
 // Wire scroll-to-zoom after DOM ready
 initScrollZoom();
