@@ -144,14 +144,27 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ══ VOLUME SLIDERS (lebar kolom & tinggi baris) ══ */
 .vol-wrap{
-  display:flex;align-items:center;gap:3px;
+  display:flex;align-items:center;gap:2px;
   background:rgba(255,255,255,.04);border:1px solid var(--bd);
-  border-radius:6px;padding:3px 6px;height:32px;
+  border-radius:6px;padding:2px 5px;height:32px;flex-shrink:0;
 }
-.vol-icon{font-size:11px;color:var(--dim);flex-shrink:0;user-select:none;line-height:1;}
+.vol-icon{font-size:10px;color:var(--dim);flex-shrink:0;user-select:none;line-height:1;margin-right:1px;}
+.vol-val{
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--ac);
+  min-width:26px;text-align:center;flex-shrink:0;user-select:none;line-height:1;
+}
+.vol-btn{
+  background:none;border:1px solid var(--bd);color:var(--dim);
+  border-radius:3px;width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;line-height:1;cursor:pointer;flex-shrink:0;
+  padding:0;transition:color .15s,border-color .15s;
+  touch-action:manipulation;
+}
+.vol-btn:hover,.vol-btn:active{color:var(--ac);border-color:var(--ac);}
 .vol-slider{
   -webkit-appearance:none;appearance:none;
-  width:56px;height:4px;border-radius:2px;outline:none;cursor:pointer;
+  width:48px;height:4px;border-radius:2px;outline:none;cursor:pointer;
   background:linear-gradient(to right, var(--ac) 0%, var(--ac) 50%, var(--bd) 50%, var(--bd) 100%);
   flex-shrink:0;
 }
@@ -460,23 +473,32 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
     <!-- Lebar kolom slider -->
     <div class="vol-wrap" title="Lebar kolom jam">
       <span class="vol-icon">⟷</span>
+      <button class="vol-btn" onclick="stepSlider('sliderColW',-1)">−</button>
       <input type="range" class="vol-slider" id="sliderColW"
         min="22" max="160" step="1" value="44"
         oninput="onSliderColW(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderColW',1)">+</button>
+      <span class="vol-val" id="valColW">44</span>
     </div>
     <!-- Tinggi baris slider -->
     <div class="vol-wrap" title="Tinggi baris jalur">
       <span class="vol-icon">↕</span>
+      <button class="vol-btn" onclick="stepSlider('sliderRowH',-1)">−</button>
       <input type="range" class="vol-slider" id="sliderRowH"
         min="28" max="160" step="1" value="64"
         oninput="onSliderRowH(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderRowH',1)">+</button>
+      <span class="vol-val" id="valRowH">64</span>
     </div>
     <!-- Ukuran font slider -->
     <div class="vol-wrap" title="Ukuran font label blok">
       <span class="vol-icon">Ａ</span>
+      <button class="vol-btn" onclick="stepSlider('sliderFont',-1)">−</button>
       <input type="range" class="vol-slider" id="sliderFont"
         min="7" max="18" step="1" value="11"
         oninput="onSliderFont(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderFont',1)">+</button>
+      <span class="vol-val" id="valFont">11</span>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
@@ -939,14 +961,29 @@ function onSliderRowH(el){
 }
 
 function updateSliderTrack(el, min, max){
-  const pct = ((parseFloat(el.value) - min) / (max - min)) * 100;
+  const val = parseFloat(el.value);
+  const pct = ((val - min) / (max - min)) * 100;
   el.style.background = `linear-gradient(to right, var(--ac) 0%, var(--ac) ${pct}%, var(--bd) ${pct}%, var(--bd) 100%)`;
+  // Update angka display
+  const valId = { sliderColW:'valColW', sliderRowH:'valRowH', sliderFont:'valFont' }[el.id];
+  if(valId){
+    const span = document.getElementById(valId);
+    if(span) span.textContent = Math.round(val);
+  }
 }
 
 function onSliderFont(el){
   FONT_SZ = parseFloat(el.value);
   updateSliderTrack(el, FONT_MIN, FONT_MAX);
   renderAll();
+}
+
+// Tombol +/- presisi untuk slider
+function stepSlider(sliderId, dir){
+  const el = document.getElementById(sliderId);
+  if(!el) return;
+  el.value = Math.max(parseFloat(el.min), Math.min(parseFloat(el.max), parseFloat(el.value) + dir * parseFloat(el.step||1)));
+  el.dispatchEvent(new Event('input'));
 }
 
 function syncSliders(){
