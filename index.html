@@ -23,15 +23,32 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
 /* ══ HEADER ══ */
 header{
   height:48px;background:linear-gradient(135deg,#0f1218,#181c28);
-  border-bottom:2px solid var(--ac);padding:0 10px;
-  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  border-bottom:2px solid var(--ac);
+  display:flex;align-items:center;flex-shrink:0;
   box-shadow:0 4px 20px rgba(0,0,0,.5);z-index:300;
+  overflow:hidden; /* tools area yang scroll, bukan header keseluruhan */
 }
+.header-brand{
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  padding:0 10px;
+  border-right:1px solid var(--bd);
+  height:100%;
+}
+.header-tools{
+  display:flex;align-items:center;gap:8px;
+  flex:1;min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:0 10px;
+  height:100%;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; /* Firefox — biar tidak nampak scrollbar tipis */
+}
+.header-tools::-webkit-scrollbar{display:none;} /* Chrome/Safari */
 .logo{width:24px;height:24px;flex-shrink:0;background:var(--ac);
   clip-path:polygon(0 20%,40% 0,100% 0,100% 80%,60% 100%,0 100%);}
 header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   letter-spacing:2px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
-.htools{margin-left:auto;display:flex;gap:4px;align-items:center;flex-wrap:nowrap;}
 #clock{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);
   display:none;}
 @media(min-width:600px){#clock{display:block;margin-right:4px;}}
@@ -164,14 +181,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   min-height:var(--ROW);flex-shrink:0;
   display:flex;border-bottom:1px solid var(--gridline);position:relative;overflow:visible;
 }
-.track-row.cuci .track-label{background:rgba(0,194,255,.07);color:var(--ac2);}
+.track-row.cuci .track-label{background:#071820;color:var(--ac2);}
 .track-label{
   width:var(--LW);min-width:var(--LW);flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:11px;letter-spacing:1.2px;color:var(--ac);
-  background:var(--sf2);border-right:2px solid var(--bd);
-  position:sticky;left:0;z-index:10;text-transform:uppercase;
-  box-shadow:2px 0 6px rgba(0,0,0,.4);
+  background:#0c0f18; /* solid — tidak tembus */
+  border-right:2px solid var(--bd);
+  position:sticky;left:0;z-index:80;text-transform:uppercase;
+  box-shadow:3px 0 10px rgba(0,0,0,.7);
   overflow:visible;
 }
 .track-grid{position:relative;flex:1;display:flex;overflow:visible;}
@@ -421,9 +439,13 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 <body>
 
 <header>
-  <div class="logo"></div>
-  <h1>Garis Waktu Langsir</h1>
-  <div class="htools">
+  <!-- Bagian kiri: logo + judul — FROZEN, tidak ikut scroll -->
+  <div class="header-brand">
+    <div class="logo"></div>
+    <h1>Garis Waktu Langsir</h1>
+  </div>
+  <!-- Bagian kanan: semua tombol — bisa digeser kiri/kanan di Android -->
+  <div class="header-tools" id="headerTools">
     <span id="clock">—</span>
     <button class="btn btn-ghost btn-sm" id="btnUndo" onclick="undo()" title="Undo" style="opacity:0.35;">↩</button>
     <button class="btn btn-ghost btn-sm" id="btnRedo" onclick="redo()" title="Redo" style="opacity:0.35;">↪</button>
