@@ -954,20 +954,30 @@ function rebuildThenRender(afterCb){
   });
 }
 
+// Debounce timer — reload dipicu setelah user berhenti geser 400ms
+let _reloadTimer = null;
+
 function onSliderColW(el){
   const newW = parseFloat(el.value);
-  const scroll = document.getElementById('tlScroll');
-  const ratio = newW / colW;
-  const sl = scroll.scrollLeft;
   colW = newW;
   updateSliderTrack(el, COL_W_MIN, COL_W_MAX);
-  rebuildThenRender(()=>{ scroll.scrollLeft = sl * ratio; });
+  // Simpan posisi scroll agar setelah reload bisa dikembalikan
+  const scroll = document.getElementById('tlScroll');
+  try{ localStorage.setItem(LS_KEY+'_scrollL', scroll.scrollLeft); } catch(e){}
+  saveLocal(); // simpan colW ke localStorage
+  scheduleReload();
 }
 
 function onSliderRowH(el){
   ROW_H = parseFloat(el.value);
   updateSliderTrack(el, ROW_H_MIN, ROW_H_MAX);
-  rebuildThenRender();
+  saveLocal(); // simpan ROW_H ke localStorage
+  scheduleReload();
+}
+
+function scheduleReload(){
+  clearTimeout(_reloadTimer);
+  _reloadTimer = setTimeout(()=>{ location.reload(); }, 400);
 }
 
 function updateSliderTrack(el, min, max){
@@ -1840,6 +1850,18 @@ applyKAListState();
 document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
 
 rebuildThenRender();
+
+// Restore posisi scroll setelah reload (dari slider kolom/baris)
+try{
+  const savedSL = localStorage.getItem(LS_KEY+'_scrollL');
+  if(savedSL !== null){
+    const sl = parseFloat(savedSL);
+    requestAnimationFrame(()=>{
+      document.getElementById('tlScroll').scrollLeft = sl;
+      localStorage.removeItem(LS_KEY+'_scrollL');
+    });
+  }
+} catch(e){}
 
 // Wire scroll-to-zoom after DOM ready
 initScrollZoom();
