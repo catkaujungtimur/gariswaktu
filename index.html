@@ -1230,6 +1230,25 @@ function renderAll(){
     const isHidden=!!ka.hidden;
     const rendered=[];
 
+    const warnaA = ka.warnaA||ka.warna||'#4ade80';
+    const warnaB = ka.warnaB||warnaA;
+    const total  = ka.segments.length;
+
+    // Tentukan warna per segmen:
+    // - Sebelum segmen cuci pertama (atau satu-satunya): warnaA
+    // - Sesudah segmen cuci terakhir: warnaB
+    // - Segmen cuci sendiri: gradient A→B (kiri warnaA, kanan warnaB)
+    function segWarna(si){
+      if(warnaA===warnaB) return {single:warnaA, isCuci:false};
+      const seg=ka.segments[si];
+      const isCuciSeg=CUCI.includes(seg.track);
+      if(isCuciSeg) return {single:null, isCuci:true, warnaA, warnaB};
+      // Cek apakah ada segmen cuci sebelum si ini
+      let hasCuciBefore=false;
+      for(let j=0;j<si;j++) if(CUCI.includes(ka.segments[j].track)){ hasCuciBefore=true; break; }
+      return hasCuciBefore ? {single:warnaB, isCuci:false} : {single:warnaA, isCuci:false};
+    }
+
     ka.segments.forEach((seg,si)=>{
       if(seg.dari>=seg.sampai){rendered.push(null);return;}
       const ti=TRACKS.indexOf(seg.track);
@@ -1245,6 +1264,7 @@ function renderAll(){
       if(isHidden) return;
 
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
+      const wInfo = segWarna(si);
 
       const renderBlock=(fromM, toM, showLabels, isContd)=>{
         const gx=minsToGridX(fromM);
@@ -1253,12 +1273,21 @@ function renderAll(){
 
         const block=document.createElement('div');
         block.className='ka-block'+(isCF?' cf':'')+(isHidden?' hidden-block':'');
+
+        // Background: gradient untuk cuci, solid untuk yang lain
+        let bgStyle;
+        if(wInfo.isCuci){
+          bgStyle=`background:linear-gradient(to right, ${wInfo.warnaA} 0%, ${wInfo.warnaA} 50%, ${wInfo.warnaB} 50%, ${wInfo.warnaB} 100%)`;
+        } else {
+          bgStyle=`background:${wInfo.single}`;
+        }
+
         block.style.cssText=[
           `left:${LW+gx}px`,
           `top:${rowY+BLK_TOP}px`,
           `width:${bw}px`,
           `height:${blockH}px`,
-          `background:${ka.warna}`,
+          bgStyle,
         ].join(';');
         block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
         block.addEventListener('mouseleave',hideTT);
@@ -1356,7 +1385,7 @@ function renderAll(){
         d=`M${x1},${y1} C${x1+dx*.5},${y1} ${x2-dx*.5},${y2} ${x2},${y2}`;
       }
       path.setAttribute('d',d);
-      path.setAttribute('stroke',ka.warna);
+      path.setAttribute('stroke',ka.warnaA||ka.warna);
       path.setAttribute('stroke-width','2');
       path.setAttribute('fill','none');
       path.setAttribute('opacity', isHidden?'0.12':'0.75');
@@ -1410,7 +1439,7 @@ function renderSidebar(){
     head.className='ka-item-head';
     head.innerHTML=`
       <span class="drag-handle" title="Geser">⠿</span>
-      <span class="ka-dot" style="background:${ka.warna}"></span>
+      <span class="ka-dot" style="background:${ka.warnaA||ka.warna}"></span>
       <span class="ka-item-name">${ka.nama}</span>
       <span class="ka-item-time">${ka.segments&&ka.segments[0]?fmt(ka.segments[0].dari):''}</span>
       ${isCF?'<span class="ka-cf-badge">CF</span>':''}
@@ -1515,13 +1544,21 @@ function segLabel(idx,total){
   return nums[idx]+' Stabling / Pindah Jalur';
 }
 
-function buildSegHTML(seg, idx, total, canRemove){
+function buildSegHTML(seg, idx, total, canRemove, warnaA, warnaB){
   const isFirst=idx===0, isLast=idx===total-1;
   const trackSelect = (isFirst||isLast)
     ? `<select class="ef-select seg-track" style="width:56px;">${jalurOpts(seg.track)}</select>`
     : `<select class="ef-select seg-track" style="width:72px;">${trackOpts(seg.track)}</select>`;
   const fromLabel = isFirst ? 'Masuk' : 'Dari';
   const toLabel   = isLast  ? 'Berangkat' : 'Sampai';
+
+  // Color picker hanya di segmen pertama dan terakhir
+  const colorPicker = isFirst
+    ? `<div class="fg"><lbl>Warna Masuk</lbl><input class="ef-color ef-warna-a" type="color" value="${warnaA||'#4ade80'}" oninput="syncWarnaB(this)"/></div>`
+    : isLast
+    ? `<div class="fg"><lbl>Warna Kembali</lbl><input class="ef-color ef-warna-b" type="color" value="${warnaB||warnaA||'#4ade80'}"/></div>`
+    : '';
+
   return `<div class="ef-seg" data-seg-idx="${idx}">
     <div class="ef-seg-head">
       <span class="ef-seg-lbl">${segLabel(idx,total)}</span>
@@ -1531,18 +1568,20 @@ function buildSegHTML(seg, idx, total, canRemove){
       <div class="fg"><lbl>Jalur/Cuci</lbl>${trackSelect}</div>
       <div class="fg"><lbl>${fromLabel}</lbl><input class="ef-ti seg-dari" type="text" value="${fmt(seg.dari)}" inputmode="numeric" maxlength="5"></div>
       <div class="fg"><lbl>${toLabel}</lbl><input class="ef-ti seg-sampai" type="text" value="${fmt(seg.sampai)}" inputmode="numeric" maxlength="5"></div>
+      ${colorPicker}
     </div>
   </div>`;
 }
 
 function buildEditFormHTML(ka){
   const segs=ka.segments||defaultSegments();
-  const segsHTML=segs.map((s,i)=>buildSegHTML(s,i,segs.length,i>0&&i<segs.length-1)).join('');
+  const warnaA=ka.warnaA||ka.warna||'#4ade80';
+  const warnaB=ka.warnaB||warnaA;
+  const segsHTML=segs.map((s,i)=>buildSegHTML(s,i,segs.length,i>0&&i<segs.length-1,warnaA,warnaB)).join('');
   return `
   <div class="ef-row" style="margin-bottom:6px;">
     <div class="fg" style="flex:1;min-width:90px;"><lbl>Nama KA</lbl>
       <input class="ef-input ef-nama" type="text" value="${ka.nama}" style="width:100%;"/></div>
-    <div class="fg"><lbl>Warna</lbl><input class="ef-color ef-warna" type="color" value="${ka.warna}"/></div>
   </div>
   <div class="ef-segs-container">${segsHTML}</div>
   <button type="button" class="btn-add-seg ef-add-seg-btn">＋ Tambah Segmen Stabling</button>
@@ -1558,23 +1597,32 @@ function addSegToForm(form, kaId){
   const total=segEls.length+1;
   const newIdx=segEls.length-1;
   const newSeg={track:'II',dari:0,sampai:0};
-  const newHtml=buildSegHTML(newSeg,newIdx,total,true);
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
+  const newHtml=buildSegHTML(newSeg,newIdx,total,true,warnaA,warnaB);
   const lastEl=segEls[segEls.length-1];
   lastEl.insertAdjacentHTML('beforebegin',newHtml);
-  relabelFormSegs(container);
+  relabelFormSegs(container, warnaA, warnaB);
   initAllTimeInputs(form);
 }
 
 function removeSegFromForm(btn){
   const seg=btn.closest('.ef-seg');
   const container=seg.closest('.ef-segs-container');
+  const form=container.closest('form')||container.closest('.ef-form-wrap')||container.parentElement;
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
   seg.remove();
-  relabelFormSegs(container);
+  relabelFormSegs(container, warnaA, warnaB);
 }
 
-function relabelFormSegs(container){
+function relabelFormSegs(container, warnaA, warnaB){
   const segs=Array.from(container.querySelectorAll('.ef-seg'));
   const total=segs.length;
+  // Read current warna from form if not passed
+  if(!warnaA) warnaA=container.querySelector('.ef-warna-a')?.value||'#4ade80';
+  if(!warnaB) warnaB=container.querySelector('.ef-warna-b')?.value||warnaA;
+
   segs.forEach((el,i)=>{
     el.dataset.segIdx=i;
     el.querySelector('.ef-seg-lbl').textContent=segLabel(i,total);
@@ -1590,6 +1638,19 @@ function relabelFormSegs(container){
       sel.innerHTML=trackOpts(curVal); sel.style.width='72px';
     } else {
       sel.innerHTML=jalurOpts(JALUR.includes(curVal)?curVal:'I'); sel.style.width='56px';
+    }
+
+    // Refresh color picker: hanya di first (warnaA) dan last (warnaB)
+    const row=el.querySelector('.ef-row');
+    const existingColorDiv=el.querySelector('.ef-color')?.closest('.fg');
+    if(existingColorDiv) existingColorDiv.remove();
+
+    if(i===0){
+      row.insertAdjacentHTML('beforeend',
+        `<div class="fg"><lbl>Warna Masuk</lbl><input class="ef-color ef-warna-a" type="color" value="${warnaA}" oninput="syncWarnaB(this)"/></div>`);
+    } else if(i===total-1){
+      row.insertAdjacentHTML('beforeend',
+        `<div class="fg"><lbl>Warna Kembali</lbl><input class="ef-color ef-warna-b" type="color" value="${warnaB}"/></div>`);
     }
   });
 }
@@ -1608,14 +1669,33 @@ function readFormSegs(container){
   return segs;
 }
 
+// Saat warna masuk diubah, warna kembali ikut HANYA jika belum pernah diubah manual
+// Kita cek dengan data-synced attribute
+function syncWarnaB(inputA){
+  const form=inputA.closest('.ef-form-wrap')||inputA.closest('form')||inputA.parentElement;
+  const inputB=form.querySelector('.ef-warna-b');
+  if(inputB && !inputB.dataset.manualChanged){
+    inputB.value=inputA.value;
+  }
+}
+
+// Mark warnaB sebagai sudah diubah manual saat user memilih sendiri
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('ef-warna-b')){
+    e.target.dataset.manualChanged='1';
+  }
+});
+
 function saveEdit(id,form){
   const nama=form.querySelector('.ef-nama').value.trim();
   if(!nama){alert('Nama KA harus diisi!');return;}
   const segs=readFormSegs(form.querySelector('.ef-segs-container'));
   if(!segs) return;
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
   snapshot();
   const idx=kaData.findIndex(k=>k.id===id);
-  if(idx>=0) kaData[idx]={...kaData[idx], nama, warna:form.querySelector('.ef-warna').value, segments:segs};
+  if(idx>=0) kaData[idx]={...kaData[idx], nama, warna:warnaA, warnaA, warnaB, segments:segs};
   renderAll();
 }
 
@@ -1655,14 +1735,18 @@ function buildAddForm(){
 function renderAddSegs(){
   const c=document.getElementById('addSegContainer');
   const total=addFormSegs.length;
+  const warnaA=c.querySelector('#a_warna_a')?.value||'#4ade80';
+  const warnaB=c.querySelector('#a_warna_b')?.value||warnaA;
   c.innerHTML=`
     <div class="ef-row" style="margin-bottom:6px;">
       <div class="fg" style="flex:1;min-width:90px;"><lbl>Nama KA</lbl>
         <input class="ef-input" id="a_nama" type="text" placeholder="mis. 491/492" style="width:100%;"/></div>
-      <div class="fg"><lbl>Warna</lbl><input class="ef-color" id="a_warna" type="color" value="#4ade80"/></div>
     </div>
-    <div id="addSegsEl">${addFormSegs.map((s,i)=>buildSegHTML(s,i,total,i>0&&i<total-1)).join('')}</div>
+    <div id="addSegsEl">${addFormSegs.map((s,i)=>buildSegHTML(s,i,total,i>0&&i<total-1,warnaA,warnaB)).join('')}</div>
   `;
+  // Rename ef-warna-a/b to a_warna_a/b so doAdd can read them
+  const inpA=c.querySelector('.ef-warna-a'); if(inpA) inpA.id='a_warna_a';
+  const inpB=c.querySelector('.ef-warna-b'); if(inpB) inpB.id='a_warna_b';
   initAllTimeInputs(c);
 }
 
@@ -1688,13 +1772,14 @@ function syncAddFormSegs(){
 function doAdd(){
   const nama=document.getElementById('a_nama')?.value?.trim();
   if(!nama){alert('Nama KA harus diisi!');return;}
-  const warna=document.getElementById('a_warna')?.value||'#4ade80';
+  const warnaA=document.getElementById('a_warna_a')?.value||'#4ade80';
+  const warnaB=document.getElementById('a_warna_b')?.value||warnaA;
   const segsEl=document.getElementById('addSegsEl');
   if(!segsEl) return;
   const segs=readFormSegs(segsEl);
   if(!segs) return;
   snapshot();
-  kaData.push({id:Date.now(),nama,warna,hidden:false,segments:segs});
+  kaData.push({id:Date.now(),nama,warna:warnaA,warnaA,warnaB,hidden:false,segments:segs});
   addFormOpen=false;
   document.getElementById('addForm').classList.remove('open');
   renderAll();
@@ -1705,7 +1790,7 @@ function doAdd(){
 // ══════════════════════════════════════════════════
 function exportJSON(btn){
   const exportData=kaData.map(k=>({
-    id:k.id, nama:k.nama, warna:k.warna, hidden:!!k.hidden,
+    id:k.id, nama:k.nama, warna:k.warnaA||k.warna, warnaA:k.warnaA||k.warna, warnaB:k.warnaB||k.warnaA||k.warna, hidden:!!k.hidden,
     segments:(k.segments||[]).map(s=>({
       track:s.track,
       dari: typeof s.dari==='number'? s.dari : (parseT(s.dari)||0),
@@ -1760,7 +1845,9 @@ function importJSON(e){
       return {
         id:     Number.isInteger(k.id)&&k.id>0 ? k.id : (Date.now()+i*7),
         nama:   String(k.nama||'KA'+(i+1)),
-        warna:  /^#[0-9a-fA-F]{6}$/.test(k.warna) ? k.warna : '#4ade80',
+        warna:  /^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80',
+        warnaA: /^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80',
+        warnaB: /^#[0-9a-fA-F]{6}$/.test(k.warnaB) ? k.warnaB : (/^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80'),
         hidden: !!k.hidden,
         segments: segs,
       };
