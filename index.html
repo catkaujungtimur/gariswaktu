@@ -280,7 +280,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ── Label overlays — menembus keluar blok, z-index tinggi ── */
 /* Jam masuk: kiri atas, boleh menembus ke kiri */
-/* Jam masuk: di luar kiri blok, mepet, sejajar atas */
+/* Jam masuk: di luar kiri blok — posisi di-set via JS */
 .blk-ts-top{
   position:absolute;
   font-family:'Share Tech Mono',monospace;
@@ -288,12 +288,9 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
   border:1px solid rgba(255,255,255,.12);
   z-index:200;
-  top:0;
-  right:100%;
-  margin-right:2px;
   line-height:1.5;
 }
-/* Nama KA: tengah blok, boleh menembus ke kanan dan kiri */
+/* Nama KA: tengah blok — posisi di-set via JS */
 .blk-name{
   position:absolute;
   font-weight:700;letter-spacing:0.3px;
@@ -301,10 +298,9 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(0,0,0,.82);border-radius:4px;padding:2px 6px;
   border:1px solid rgba(255,255,255,.18);
   z-index:201;
-  top:50%; left:50%;
-  transform:translate(-50%,-50%);
+  line-height:1.5;
 }
-/* Jam keluar: di luar kanan blok, mepet, sejajar bawah */
+/* Jam keluar: di luar kanan blok — posisi di-set via JS */
 .blk-ts-bot{
   position:absolute;
   font-family:'Share Tech Mono',monospace;
@@ -312,9 +308,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
   border:1px solid rgba(255,255,255,.12);
   z-index:200;
-  bottom:0;
-  left:100%;
-  margin-left:2px;
   line-height:1.5;
 }
 
@@ -1411,29 +1404,44 @@ function renderAll(){
         block.addEventListener('mouseleave',hideTT);
 
         const tsz = FONT_SZ;
-        const nmsz = Math.round(tsz * 1.2); // nama sedikit lebih besar
+        const nmsz = Math.round(tsz * 1.2);
+
+        // Posisi absolut label relatif terhadap area (bukan blok)
+        const absLeft  = LW + gx;        // X kiri blok dalam area
+        const absTop   = rowY + BLK_TOP; // Y atas blok dalam area
+        const absBot   = absTop + blockH; // Y bawah blok
+        const absMidY  = absTop + blockH / 2;
+        const absMidX  = absLeft + bw / 2;
 
         if(showLabels){
-          // Jam masuk — kiri atas, menembus ke kiri
+          // Jam masuk — di luar kiri blok, sejajar atas
           const tsTop=document.createElement('div');
           tsTop.className='blk-ts-top';
           tsTop.textContent=fmt(fromM);
           tsTop.style.fontSize = tsz+'px';
-          block.appendChild(tsTop);
+          tsTop.style.top  = absTop+'px';
+          tsTop.style.left = absLeft+'px';
+          tsTop.style.transform = 'translateX(-100%) translateX(-2px)';
+          area.appendChild(tsTop);
 
-          // Nama KA — tengah, menembus kanan & kiri
+          // Nama KA — tengah blok
           const nm=document.createElement('div');
           nm.className='blk-name';
           nm.textContent=ka.nama;
           nm.style.fontSize = nmsz+'px';
-          block.appendChild(nm);
+          nm.style.top  = absMidY+'px';
+          nm.style.left = absMidX+'px';
+          nm.style.transform = 'translate(-50%,-50%)';
+          area.appendChild(nm);
 
-          // Jam keluar — kanan bawah, menembus ke kanan
+          // Jam keluar — di luar kanan blok, sejajar bawah
           const tsBot=document.createElement('div');
           tsBot.className='blk-ts-bot';
           tsBot.textContent=crossMidnight&&!isContd ? sampaiDisplay : fmt(toM);
           tsBot.style.fontSize = tsz+'px';
-          block.appendChild(tsBot);
+          tsBot.style.top  = (absBot - tsz*1.5 - 2)+'px';
+          tsBot.style.left = (absLeft + bw + 2)+'px';
+          area.appendChild(tsBot);
 
           // Durasi — di luar bawah blok, di tengah
           if(!isContd){
@@ -1441,7 +1449,10 @@ function renderAll(){
             dur.className='blk-dur';
             dur.textContent=durLabel(seg.dari, seg.sampai);
             dur.style.fontSize = tsz+'px';
-            block.appendChild(dur);
+            dur.style.top  = (absBot + 2)+'px';
+            dur.style.left = absMidX+'px';
+            dur.style.transform = 'translateX(-50%)';
+            area.appendChild(dur);
           }
         } else {
           // Blok lanjutan (cross-midnight) — nama saja di tengah
@@ -1449,7 +1460,11 @@ function renderAll(){
           nm.className='blk-name';
           nm.textContent=ka.nama;
           nm.style.fontSize = nmsz+'px';
-          block.appendChild(nm);
+          nm.style.top  = absMidY+'px';
+          nm.style.left = absMidX+'px';
+          nm.style.transform = 'translate(-50%,-50%)';
+          area.appendChild(nm);
+        }
         }
 
         area.appendChild(block);
