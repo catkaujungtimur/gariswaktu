@@ -276,6 +276,19 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   line-height:1.5;
 }
 
+/* Durasi total KA di stasiun — di atas blok cuci, center */
+.blk-total-dur{
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.88);border-radius:3px;padding:1px 6px;
+  border:1px solid rgba(255,255,255,.22);
+  z-index:52;
+  transform:translate(-50%, -100%);
+  margin-top:-3px;
+  line-height:1.5;
+}
+
 #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   text-align:center;color:var(--dim);pointer-events:none;}
 #emptyHint .big{font-size:34px;opacity:.12;margin-bottom:5px;}
@@ -1209,7 +1222,7 @@ function resolveFloatingLabels(labels, blockH){
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur').forEach(e=>e.remove());
+  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur,.blk-total-dur').forEach(e=>e.remove());
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
@@ -1348,7 +1361,7 @@ function renderAll(){
       const blkBot = rowY + BLK_TOP + blockH;
     });
 
-    // Arrows
+    // Arrows — warna berbeda sebelum/sesudah cuci
     for(let si=0;si<rendered.length-1;si++){
       const cur=rendered[si], nx=rendered[si+1];
       if(!cur||!nx) continue;
@@ -1359,6 +1372,12 @@ function renderAll(){
       const isNormalValid = curSeg.sampai <= TOTAL && nxSeg.dari >= curSeg.sampai;
       const isCrossValid  = curEndEsok !== null && nxSeg.dari >= curEndEsok;
       if(!isNormalValid && !isCrossValid) continue;
+
+      // Garis setelah blok cuci (atau setelah segmen yang sudah lewat cuci) → warnaB
+      // Garis sebelum cuci → warnaA
+      let hasCuciAtOrBefore = false;
+      for(let j=0;j<=si;j++) if(CUCI.includes(ka.segments[j].track)){ hasCuciAtOrBefore=true; break; }
+      const connColor = hasCuciAtOrBefore ? (warnaB) : (warnaA);
 
       const blockH2 = ROW_H - BLK_TOP - BLK_BOTTOM;
       const curTop    = cur.rowY + BLK_TOP;
@@ -1385,11 +1404,40 @@ function renderAll(){
         d=`M${x1},${y1} C${x1+dx*.5},${y1} ${x2-dx*.5},${y2} ${x2},${y2}`;
       }
       path.setAttribute('d',d);
-      path.setAttribute('stroke',ka.warnaA||ka.warna);
+      path.setAttribute('stroke', connColor);
       path.setAttribute('stroke-width','2');
       path.setAttribute('fill','none');
       path.setAttribute('opacity', isHidden?'0.12':'0.75');
       svg.appendChild(path);
+    }
+
+    // ── Durasi total KA di stasiun (masuk → berangkat) di atas blok cuci ──
+    if(!isHidden && ka.segments.length >= 2){
+      // Cari segmen cuci pertama
+      const cuciIdx = ka.segments.findIndex(s=>CUCI.includes(s.track));
+      if(cuciIdx >= 0){
+        const segMasuk    = ka.segments[0];
+        const segBerangkat= ka.segments[ka.segments.length-1];
+        const durTotalMins= segBerangkat.sampai - segMasuk.dari;
+        if(durTotalMins > 0){
+          const cuciSeg  = ka.segments[cuciIdx];
+          const cuciTi   = TRACKS.indexOf(cuciSeg.track);
+          const cuciGX   = minsToGridX(cuciSeg.dari);
+          const cuciGW   = minsToGridX(Math.min(cuciSeg.sampai,TOTAL)) - cuciGX;
+          const cuciCX   = LW + cuciGX + cuciGW/2;
+          const cuciRowY = cuciTi * ROW_H;
+          const blockH3  = ROW_H - BLK_TOP - BLK_BOTTOM;
+
+          const lbl = document.createElement('div');
+          lbl.className = 'blk-total-dur';
+          lbl.textContent = '⏱ '+durLabel(segMasuk.dari, segBerangkat.sampai > TOTAL
+            ? segBerangkat.sampai : segBerangkat.sampai);
+          lbl.style.left = cuciCX+'px';
+          lbl.style.top  = (cuciRowY + BLK_TOP - 2)+'px';
+          lbl.style.fontSize = FONT_SZ+'px';
+          area.appendChild(lbl);
+        }
+      }
     }
   });
 
