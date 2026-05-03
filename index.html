@@ -1279,6 +1279,11 @@ function renderAll(){
       const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
       const wInfo = segWarna(si);
 
+      // Untuk segmen cuci cross-midnight: hitung posisi tengah durasi cuci
+      // agar split warna berada tepat di tengah waktu cuci, bukan tengah blok visual
+      const cuciDurMins = seg.sampai - seg.dari; // total menit cuci (misal 240 menit)
+      const cuciMidMins = seg.dari + cuciDurMins / 2; // menit absolut titik tengah
+
       const renderBlock=(fromM, toM, showLabels, isContd)=>{
         const gx=minsToGridX(fromM);
         const bw=minsToGridX(toM)-gx;
@@ -1289,10 +1294,28 @@ function renderAll(){
 
         // Background: gradient untuk cuci, solid untuk yang lain
         let bgStyle;
-        if(wInfo.isCuci){
-          bgStyle=`background:linear-gradient(to right, ${wInfo.warnaA} 0%, ${wInfo.warnaA} 50%, ${wInfo.warnaB} 50%, ${wInfo.warnaB} 100%)`;
+        if(wInfo.isCuci && warnaA !== warnaB){
+          // cuciMidMins = menit absolut titik tengah durasi cuci
+          // Konversikan ke pixel X dalam grid
+          // Untuk blok cross-midnight: fromM=0..cuciEnd atau fromM=cuciStart..TOTAL
+          // Kita perlu tau apakah titik tengah ada di blok ini atau tidak
+          const midPixel = minsToGridX(
+            cuciMidMins >= TOTAL ? cuciMidMins - TOTAL : cuciMidMins
+          );
+
+          if(midPixel <= gx){
+            // Tengah cuci ada sebelum blok ini → seluruh blok = warnaB
+            bgStyle=`background:${warnaB}`;
+          } else if(midPixel >= gx + bw){
+            // Tengah cuci ada setelah blok ini → seluruh blok = warnaA
+            bgStyle=`background:${warnaA}`;
+          } else {
+            // Tengah cuci ada di dalam blok ini → split di sini
+            const splitPct = ((midPixel - gx) / bw * 100).toFixed(2);
+            bgStyle=`background:linear-gradient(to right, ${warnaA} 0%, ${warnaA} ${splitPct}%, ${warnaB} ${splitPct}%, ${warnaB} 100%)`;
+          }
         } else {
-          bgStyle=`background:${wInfo.single}`;
+          bgStyle=`background:${wInfo.single||warnaA}`;
         }
 
         block.style.cssText=[
@@ -1413,28 +1436,37 @@ function renderAll(){
 
     // ── Durasi total KA di stasiun (masuk → berangkat) di atas blok cuci ──
     if(!isHidden && ka.segments.length >= 2){
-      // Cari segmen cuci pertama
       const cuciIdx = ka.segments.findIndex(s=>CUCI.includes(s.track));
       if(cuciIdx >= 0){
-        const segMasuk    = ka.segments[0];
-        const segBerangkat= ka.segments[ka.segments.length-1];
-        const durTotalMins= segBerangkat.sampai - segMasuk.dari;
-        if(durTotalMins > 0){
+        const segMasuk     = ka.segments[0];
+        const segBerangkat = ka.segments[ka.segments.length-1];
+
+        // Normalisasi: semua menit relatif terhadap segMasuk.dari
+        // segBerangkat.sampai bisa sudah tersimpan > 1440 jika cross-midnight
+        // Pastikan selalu menghitung durasi maju (tidak negatif)
+        let masukDari   = segMasuk.dari;
+        let berangkatSampai = segBerangkat.sampai;
+        // Jika berangkat.sampai lebih kecil dari masuk.dari (belum di-normalize),
+        // tambah 1440 agar durasi tetap positif
+        if(berangkatSampai <= masukDari) berangkatSampai += TOTAL;
+        const durTotalMins = berangkatSampai - masukDari;
+
+        if(durTotalMins > 0 && durTotalMins <= TOTAL * 2){
           const cuciSeg  = ka.segments[cuciIdx];
           const cuciTi   = TRACKS.indexOf(cuciSeg.track);
+
+          // Posisi label: tengah blok cuci bagian pertama (atau satu-satunya)
           const cuciGX   = minsToGridX(cuciSeg.dari);
-          const cuciGW   = minsToGridX(Math.min(cuciSeg.sampai,TOTAL)) - cuciGX;
-          const cuciCX   = LW + cuciGX + cuciGW/2;
+          const cuciGW   = minsToGridX(Math.min(cuciSeg.sampai, TOTAL)) - cuciGX;
+          const cuciCX   = LW + cuciGX + cuciGW / 2;
           const cuciRowY = cuciTi * ROW_H;
-          const blockH3  = ROW_H - BLK_TOP - BLK_BOTTOM;
 
           const lbl = document.createElement('div');
           lbl.className = 'blk-total-dur';
-          lbl.textContent = '⏱ '+durLabel(segMasuk.dari, segBerangkat.sampai > TOTAL
-            ? segBerangkat.sampai : segBerangkat.sampai);
-          lbl.style.left = cuciCX+'px';
-          lbl.style.top  = (cuciRowY + BLK_TOP - 2)+'px';
-          lbl.style.fontSize = FONT_SZ+'px';
+          lbl.textContent = '⏱ ' + durLabel(masukDari, berangkatSampai);
+          lbl.style.left = cuciCX + 'px';
+          lbl.style.top  = (cuciRowY + BLK_TOP - 2) + 'px';
+          lbl.style.fontSize = FONT_SZ + 'px';
           area.appendChild(lbl);
         }
       }
