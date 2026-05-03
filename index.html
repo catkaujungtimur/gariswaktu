@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GARIS WAKTU — Jadwal Langsir Kereta</title>
+<script>
+// Apply tema lebih awal agar tidak flash putih/hitam saat reload
+(function(){
+  const t=localStorage.getItem('gariswaktu_v7_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
@@ -16,6 +23,33 @@
   --ROW:64px;
   --HH:40px;
 }
+html[data-theme="light"]{
+  --bg:#f0f2f7; --sf:#ffffff; --sf2:#e8eaf0; --bd:#c8ccd8;
+  --ac:#d4920a; --ac2:#0088bb; --red:#dc2626; --grn:#16a34a;
+  --txt:#1a1d26; --dim:#6b7280; --gridline:#dde0ea;
+}
+html[data-theme="light"] body{ background:var(--bg); color:var(--txt); }
+html[data-theme="light"] header{
+  background:linear-gradient(135deg,#e0e4ef,#f0f2f7);
+  border-bottom-color:var(--ac);
+}
+html[data-theme="light"] .track-label{ background:#e0e4ef; color:var(--ac); }
+html[data-theme="light"] .track-row.cuci .track-label{ background:#d4e8f0; color:var(--ac2); }
+html[data-theme="light"] .track-row.cuci{ background:rgba(0,136,187,.07); }
+html[data-theme="light"] .tl-scroll{ background:var(--bg); }
+html[data-theme="light"] .hcell.major{ color:var(--txt); }
+html[data-theme="light"] .hcell.minor{ color:var(--dim); }
+html[data-theme="light"] .gcell{ border-right-color:var(--gridline); }
+html[data-theme="light"] .gcell.maj{ border-right-color:var(--bd); }
+html[data-theme="light"] .sidebar{ background:var(--sf); border-color:var(--bd); }
+html[data-theme="light"] .ka-item{ background:var(--sf2); border-color:var(--bd); }
+html[data-theme="light"] .blk-ts-top,
+html[data-theme="light"] .blk-ts-bot,
+html[data-theme="light"] .blk-name,
+html[data-theme="light"] .blk-dur,
+html[data-theme="light"] .blk-total-dur{ background:rgba(255,255,255,.9); color:#111; border-color:rgba(0,0,0,.15); }
+html[data-theme="light"] .tl-scroll::-webkit-scrollbar-track{ background:#e0e4ef; }
+html[data-theme="light"] .tl-scroll::-webkit-scrollbar-thumb{ background:linear-gradient(to bottom,#b0b8d0,#909ab8); }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
   font-family:'Barlow Condensed',sans-serif;touch-action:pan-x pan-y;}
@@ -483,6 +517,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <span class="zoom-l" id="zoomLbl">60m</span>
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
+    <!-- Tema -->
+    <div class="vol-wrap" title="Pilih tema" style="gap:4px;">
+      <span class="vol-icon">🎨</span>
+      <select id="themeSelect" onchange="onThemeChange(this)"
+        style="background:transparent;border:none;color:var(--ac);font-size:11px;cursor:pointer;outline:none;font-family:inherit;">
+        <option value="dark">Gelap</option>
+        <option value="light">Terang</option>
+      </select>
+    </div>
     <!-- Lebar kolom slider -->
     <div class="vol-wrap" title="Lebar kolom jam">
       <span class="vol-icon">⟷</span>
@@ -638,6 +681,7 @@ function saveLocal(){
     localStorage.setItem(LS_KEY+'_colW', colW);
     localStorage.setItem(LS_KEY+'_rowH', ROW_H);
     localStorage.setItem(LS_KEY+'_fontSz', FONT_SZ);
+    localStorage.setItem(LS_KEY+'_theme', document.documentElement.getAttribute('data-theme')||'dark');
   } catch(e){}
 }
 
@@ -1032,7 +1076,30 @@ function syncSliders(){
 function zoom(d){
   zoomIdx=Math.max(0,Math.min(ZOOM.length-1,zoomIdx+d));
   document.getElementById('zoomLbl').textContent=ZOOM[zoomIdx]+'m';
-  rebuildThenRender();
+  saveLocal();
+  scheduleReload();
+}
+
+// ══════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark');
+  const sel=document.getElementById('themeSelect');
+  if(sel) sel.value=theme==='light'?'light':'dark';
+}
+
+function onThemeChange(sel){
+  const theme=sel.value;
+  try{ localStorage.setItem(LS_KEY+'_theme', theme); } catch(e){}
+  saveLocal();
+  scheduleReload();
+}
+
+function loadTheme(){
+  const t=localStorage.getItem(LS_KEY+'_theme')||'dark';
+  applyTheme(t);
+  return t;
 }
 
 // ══════════════════════════════════════════════════
@@ -1961,29 +2028,72 @@ function importJSON(e){
 // ══════════════════════════════════════════════════
 // EXPORT PNG — uses current colW so the export
 // matches exactly what the user sees on screen.
-// html2canvas captures the full tl-inner at native
-// resolution; colW is already baked into the DOM.
+// ══════════════════════════════════════════════════
+// EXPORT PNG — crop presisi: dari kolom jalur kiri
+// sampai jam 24:00 + 1 kolom extra, semua jalur.
+// Menggunakan colW & ROW_H saat ini (volume terakhir).
 // ══════════════════════════════════════════════════
 function exportPNG(){
-  const inner=document.getElementById('tlInner');
-  const scroll=document.getElementById('tlScroll');
-  const origOverflow=scroll.style.overflow;
-  scroll.style.overflow='visible';
-  html2canvas(inner,{
-    backgroundColor:'#0a0c10',
-    scale:2,
-    useCORS:true,
-    width:inner.scrollWidth,
-    height:inner.scrollHeight,
-  }).then(c=>{
-    scroll.style.overflow=origOverflow;
-    const a=document.createElement('a');
-    a.href=c.toDataURL('image/png');
-    a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.png';
+  const btn = document.querySelector('button[onclick="exportPNG()"]');
+  const origText = btn ? btn.textContent : '';
+  if(btn){ btn.textContent='⏳'; btn.disabled=true; }
+
+  // Reset canvas scale sementara ke 1.0 agar capture tidak terdistorsi
+  const inner  = document.getElementById('tlInner');
+  const origTransform = inner.style.transform;
+  inner.style.transform = 'scale(1)';
+
+  // Ukuran crop:
+  // - x: 0 (mulai dari pojok kiri tlInner, termasuk LW kolom jalur)
+  // - y: 0 (mulai dari atas, termasuk header jam)
+  // - width: LW + lebar grid sampai 24:00 + 1 kolom extra
+  // - height: header jam + semua jalur (TRACKS.length baris)
+  const mpc      = ZOOM[zoomIdx];
+  const cols24   = Math.ceil(TOTAL / mpc);          // jumlah kolom sampai 24:00
+  const extraCol = 1;                               // 1 kolom extra di kanan
+  const gridW    = (cols24 + extraCol) * colW;
+  const captureW = LW + gridW;
+
+  const headerH  = 40;                             // tinggi header jam (--HH)
+  const captureH = headerH + TRACKS.length * ROW_H + 28; // +28 = padding bawah
+
+  // Scroll reset ke 0,0 sementara agar html2canvas membaca dari awal
+  const scroll = document.getElementById('tlScroll');
+  const prevSL = scroll.scrollLeft;
+  const prevST = scroll.scrollTop;
+  scroll.scrollLeft = 0;
+  scroll.scrollTop  = 0;
+
+  const bgColor = getComputedStyle(document.documentElement)
+    .getPropertyValue('--bg').trim() || '#0a0c10';
+
+  html2canvas(inner, {
+    backgroundColor: bgColor,
+    scale: 2,
+    useCORS: true,
+    x: 0,
+    y: 0,
+    width:  captureW,
+    height: captureH,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth:  captureW,
+    windowHeight: captureH,
+  }).then(canvas => {
+    inner.style.transform = origTransform;
+    scroll.scrollLeft = prevSL;
+    scroll.scrollTop  = prevST;
+    if(btn){ btn.textContent=origText; btn.disabled=false; }
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'garis-waktu-' + new Date().toISOString().slice(0,10) + '.png';
     a.click();
-  }).catch(()=>{
-    scroll.style.overflow=origOverflow;
-    alert('Export gagal.');
+  }).catch(err => {
+    inner.style.transform = origTransform;
+    scroll.scrollLeft = prevSL;
+    scroll.scrollTop  = prevST;
+    if(btn){ btn.textContent=origText; btn.disabled=false; }
+    alert('Export gagal: ' + err);
   });
 }
 
@@ -2011,6 +2121,7 @@ new ResizeObserver(()=>{
 // ══════════════════════════════════════════════════
 kaData=[];
 loadLocal();
+loadTheme();        // apply tema sebelum render agar tidak flash
 syncSliders();
 applyKAListState();
 
