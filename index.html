@@ -50,6 +50,29 @@ html[data-theme="light"] .blk-dur,
 html[data-theme="light"] .blk-total-dur{ background:rgba(255,255,255,.9); color:#111; border-color:rgba(0,0,0,.15); }
 html[data-theme="light"] .tl-scroll::-webkit-scrollbar-track{ background:#e0e4ef; }
 html[data-theme="light"] .tl-scroll::-webkit-scrollbar-thumb{ background:linear-gradient(to bottom,#b0b8d0,#909ab8); }
+
+/* ══ PRINT / LATAR PUTIH — aktif saat export PNG putih ══ */
+html[data-print="light"] #tlInner{ background:#ffffff !important; }
+html[data-print="light"] .track-row{ background:#ffffff !important; border-bottom-color:#c8ccd8 !important; }
+html[data-print="light"] .track-row.cuci{ background:#eef6fb !important; }
+html[data-print="light"] .track-label{
+  background:#e8eaf0 !important; color:#d4920a !important;
+  box-shadow:2px 0 6px rgba(0,0,0,.15) !important;
+}
+html[data-print="light"] .track-row.cuci .track-label{ background:#d4e8f0 !important; color:#0088bb !important; }
+html[data-print="light"] .hcell{ background:#f0f2f7 !important; color:#6b7280 !important; border-right-color:#c8ccd8 !important; }
+html[data-print="light"] .hcell.major{ color:#1a1d26 !important; }
+html[data-print="light"] .gcell{ border-right-color:#dde0ea !important; }
+html[data-print="light"] .gcell.maj{ border-right-color:#b0b8c8 !important; }
+html[data-print="light"] .blk-ts-top,
+html[data-print="light"] .blk-ts-bot,
+html[data-print="light"] .blk-name,
+html[data-print="light"] .blk-dur,
+html[data-print="light"] .blk-total-dur{
+  background:rgba(255,255,255,.92) !important;
+  color:#111 !important;
+  border-color:rgba(0,0,0,.18) !important;
+}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
   font-family:'Barlow Condensed',sans-serif;touch-action:pan-x pan-y;}
@@ -517,15 +540,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <span class="zoom-l" id="zoomLbl">60m</span>
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
-    <!-- Tema -->
-    <div class="vol-wrap" title="Pilih tema" style="gap:4px;">
-      <span class="vol-icon">🎨</span>
-      <select id="themeSelect" onchange="onThemeChange(this)"
-        style="background:transparent;border:none;color:var(--ac);font-size:11px;cursor:pointer;outline:none;font-family:inherit;">
-        <option value="dark">Gelap</option>
-        <option value="light">Terang</option>
-      </select>
-    </div>
     <!-- Lebar kolom slider -->
     <div class="vol-wrap" title="Lebar kolom jam">
       <span class="vol-icon">⟷</span>
@@ -556,7 +570,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <button class="vol-btn" onclick="stepSlider('sliderFont',1)">+</button>
       <span class="vol-val" id="valFont">11</span>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
+    <button class="btn btn-ghost btn-sm" id="btnPngDark"  onclick="exportPNG('dark')"  title="Simpan PNG latar hitam">📷</button>
+    <button class="btn btn-ghost btn-sm" id="btnPngLight" onclick="exportPNG('light')" title="Simpan PNG latar putih (Print)" style="background:rgba(255,255,255,.15);color:#111;border-color:#ccc;">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
     <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
       📂<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
@@ -2031,64 +2046,66 @@ function importJSON(e){
 // ══════════════════════════════════════════════════
 // EXPORT PNG — crop presisi: dari kolom jalur kiri
 // sampai jam 24:00 + 1 kolom extra, semua jalur.
-// Menggunakan colW & ROW_H saat ini (volume terakhir).
+// mode='dark' → latar hitam (simpan ke PC)
+// mode='light' → latar putih (untuk print)
 // ══════════════════════════════════════════════════
-function exportPNG(){
-  const btn = document.querySelector('button[onclick="exportPNG()"]');
+function exportPNG(mode){
+  mode = mode || 'dark';
+  const btnId = mode==='light' ? 'btnPngLight' : 'btnPngDark';
+  const btn = document.getElementById(btnId);
   const origText = btn ? btn.textContent : '';
   if(btn){ btn.textContent='⏳'; btn.disabled=true; }
 
-  // Reset canvas scale sementara ke 1.0 agar capture tidak terdistorsi
   const inner  = document.getElementById('tlInner');
+  const scroll = document.getElementById('tlScroll');
+
+  // Reset canvas scale sementara ke 1.0
   const origTransform = inner.style.transform;
   inner.style.transform = 'scale(1)';
 
-  // Ukuran crop:
-  // - x: 0 (mulai dari pojok kiri tlInner, termasuk LW kolom jalur)
-  // - y: 0 (mulai dari atas, termasuk header jam)
-  // - width: LW + lebar grid sampai 24:00 + 1 kolom extra
-  // - height: header jam + semua jalur (TRACKS.length baris)
+  // Ukuran crop
   const mpc      = ZOOM[zoomIdx];
-  const cols24   = Math.ceil(TOTAL / mpc);          // jumlah kolom sampai 24:00
-  const extraCol = 1;                               // 1 kolom extra di kanan
+  const cols24   = Math.ceil(TOTAL / mpc);
+  const extraCol = 1;
   const gridW    = (cols24 + extraCol) * colW;
   const captureW = LW + gridW;
+  const headerH  = 40;
+  const captureH = headerH + TRACKS.length * ROW_H + 28;
 
-  const headerH  = 40;                             // tinggi header jam (--HH)
-  const captureH = headerH + TRACKS.length * ROW_H + 28; // +28 = padding bawah
-
-  // Scroll reset ke 0,0 sementara agar html2canvas membaca dari awal
-  const scroll = document.getElementById('tlScroll');
   const prevSL = scroll.scrollLeft;
   const prevST = scroll.scrollTop;
   scroll.scrollLeft = 0;
   scroll.scrollTop  = 0;
 
-  const bgColor = getComputedStyle(document.documentElement)
-    .getPropertyValue('--bg').trim() || '#0a0c10';
+  const bgColor = mode === 'light' ? '#ffffff' : '#0a0c10';
+
+  // Untuk mode terang: tambahkan class sementara ke html agar warna grid berubah
+  const htmlEl = document.documentElement;
+  if(mode === 'light') htmlEl.setAttribute('data-print', 'light');
 
   html2canvas(inner, {
     backgroundColor: bgColor,
     scale: 2,
     useCORS: true,
-    x: 0,
-    y: 0,
+    x: 0, y: 0,
     width:  captureW,
     height: captureH,
-    scrollX: 0,
-    scrollY: 0,
+    scrollX: 0, scrollY: 0,
     windowWidth:  captureW,
     windowHeight: captureH,
   }).then(canvas => {
+    if(mode === 'light') htmlEl.removeAttribute('data-print');
     inner.style.transform = origTransform;
     scroll.scrollLeft = prevSL;
     scroll.scrollTop  = prevST;
     if(btn){ btn.textContent=origText; btn.disabled=false; }
+    const suffix = mode === 'light' ? '-print' : '';
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'garis-waktu-' + new Date().toISOString().slice(0,10) + '.png';
+    a.download = 'garis-waktu' + suffix + '-' + new Date().toISOString().slice(0,10) + '.png';
     a.click();
   }).catch(err => {
+    if(mode === 'light') htmlEl.removeAttribute('data-print');
     inner.style.transform = origTransform;
     scroll.scrollLeft = prevSL;
     scroll.scrollTop  = prevST;
