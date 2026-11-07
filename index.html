@@ -402,12 +402,15 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   .sidebar.collapsed-edge .sb-body,
   .sidebar.collapsed-edge #kaCountDesk{display:none;}
   .sidebar.collapsed-edge .sb-head{
-    flex-direction:column;writing-mode:vertical-rl;height:100%;
-    justify-content:flex-start;padding:12px 4px;gap:10px;
+    flex-direction:column;height:100%;
+    justify-content:flex-start;align-items:center;padding:10px 0;gap:10px;
     border-bottom:none;cursor:pointer;
   }
+  .sidebar.collapsed-edge .sb-title{writing-mode:vertical-rl;}
+  /* Tombol tetap terlihat & di paling atas saat panel diciutkan */
   .sidebar.collapsed-edge .sb-collapse-btn{
-    writing-mode:horizontal-tb;transform:scaleX(-1);
+    order:-1;margin-left:0;padding:4px 6px;transform:none;
+    border:1px solid var(--ac);border-radius:4px;color:var(--ac);
   }
 }
 
@@ -548,6 +551,16 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <span class="zoom-l" id="zoomLbl">60m</span>
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
+    <!-- Ukuran font slider (pilihan pertama) -->
+    <div class="vol-wrap" title="Ukuran font label blok">
+      <span class="vol-icon">Ａ</span>
+      <button class="vol-btn" onclick="stepSlider('sliderFont',-1)">−</button>
+      <input type="range" class="vol-slider" id="sliderFont"
+        min="7" max="18" step="1" value="11"
+        oninput="onSliderFont(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderFont',1)">+</button>
+      <span class="vol-val" id="valFont">11</span>
+    </div>
     <!-- Lebar kolom slider -->
     <div class="vol-wrap" title="Lebar kolom jam">
       <span class="vol-icon">⟷</span>
@@ -567,16 +580,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
         oninput="onSliderRowH(this)">
       <button class="vol-btn" onclick="stepSlider('sliderRowH',1)">+</button>
       <span class="vol-val" id="valRowH">64</span>
-    </div>
-    <!-- Ukuran font slider -->
-    <div class="vol-wrap" title="Ukuran font label blok">
-      <span class="vol-icon">Ａ</span>
-      <button class="vol-btn" onclick="stepSlider('sliderFont',-1)">−</button>
-      <input type="range" class="vol-slider" id="sliderFont"
-        min="7" max="18" step="1" value="11"
-        oninput="onSliderFont(this)">
-      <button class="vol-btn" onclick="stepSlider('sliderFont',1)">+</button>
-      <span class="vol-val" id="valFont">11</span>
     </div>
     <button class="btn btn-ghost btn-sm" id="btnPngDark"  onclick="exportPNG('dark')"  title="Simpan PNG latar hitam">📷</button>
     <button class="btn btn-ghost btn-sm" id="btnPngLight" onclick="exportPNG('light')" title="Simpan PNG latar putih (Print)" style="background:rgba(255,255,255,.15);color:#111;border-color:#ccc;">📷</button>
@@ -618,7 +621,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <!-- expand button shown here when collapsed -->
       <button id="sbExpandBtn" onclick="expandSidebarFromTab(event)">▲ Tampilkan</button>
     </div>
-    <div class="sb-head">
+    <div class="sb-head" onclick="if(document.getElementById('sidebar').classList.contains('collapsed-edge')) toggleSidebarEdge(event)">
       <div class="sb-title">Daftar KA</div>
       <span id="kaCountDesk"></span>
       <button class="sb-collapse-btn" onclick="toggleSidebarEdge(event)" title="Sembunyikan panel">◀</button>
