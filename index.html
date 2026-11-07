@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>GARIS WAKTU — Jadwal Langsir Kereta</title>
+<script>
+// Apply tema lebih awal agar tidak flash putih/hitam saat reload
+(function(){
+  const t=localStorage.getItem('gariswaktu_v7_theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700;800&display=swap');
@@ -14,7 +21,57 @@
   --txt:#e8eaf0; --dim:#6b7280; --gridline:#1e2330;
   --LW:72px;
   --ROW:64px;
-  --HH:40px; /* header height — used by floating label offset */
+  --HH:40px;
+}
+html[data-theme="light"]{
+  --bg:#f0f2f7; --sf:#ffffff; --sf2:#e8eaf0; --bd:#c8ccd8;
+  --ac:#d4920a; --ac2:#0088bb; --red:#dc2626; --grn:#16a34a;
+  --txt:#1a1d26; --dim:#6b7280; --gridline:#dde0ea;
+}
+html[data-theme="light"] body{ background:var(--bg); color:var(--txt); }
+html[data-theme="light"] header{
+  background:linear-gradient(135deg,#e0e4ef,#f0f2f7);
+  border-bottom-color:var(--ac);
+}
+html[data-theme="light"] .track-label{ background:#e0e4ef; color:var(--ac); }
+html[data-theme="light"] .track-row.cuci .track-label{ background:#d4e8f0; color:var(--ac2); }
+html[data-theme="light"] .track-row.cuci{ background:rgba(0,136,187,.07); }
+html[data-theme="light"] .tl-scroll{ background:var(--bg); }
+html[data-theme="light"] .hcell.major{ color:var(--txt); }
+html[data-theme="light"] .hcell.minor{ color:var(--dim); }
+html[data-theme="light"] .gcell{ border-right-color:var(--gridline); }
+html[data-theme="light"] .gcell.maj{ border-right-color:var(--bd); }
+html[data-theme="light"] .sidebar{ background:var(--sf); border-color:var(--bd); }
+html[data-theme="light"] .ka-item{ background:var(--sf2); border-color:var(--bd); }
+html[data-theme="light"] .blk-ts-top,
+html[data-theme="light"] .blk-ts-bot,
+html[data-theme="light"] .blk-name,
+html[data-theme="light"] .blk-dur,
+html[data-theme="light"] .blk-total-dur{ background:rgba(255,255,255,.9); color:#111; border-color:rgba(0,0,0,.15); }
+html[data-theme="light"] .tl-scroll::-webkit-scrollbar-track{ background:#e0e4ef; }
+html[data-theme="light"] .tl-scroll::-webkit-scrollbar-thumb{ background:linear-gradient(to bottom,#b0b8d0,#909ab8); }
+
+/* ══ PRINT / LATAR PUTIH — aktif saat export PNG putih ══ */
+html[data-print="light"] #tlInner{ background:#ffffff !important; }
+html[data-print="light"] .track-row{ background:#ffffff !important; border-bottom-color:#c8ccd8 !important; }
+html[data-print="light"] .track-row.cuci{ background:#eef6fb !important; }
+html[data-print="light"] .track-label{
+  background:#e8eaf0 !important; color:#d4920a !important;
+  box-shadow:2px 0 6px rgba(0,0,0,.15) !important;
+}
+html[data-print="light"] .track-row.cuci .track-label{ background:#d4e8f0 !important; color:#0088bb !important; }
+html[data-print="light"] .hcell{ background:#f0f2f7 !important; color:#6b7280 !important; border-right-color:#c8ccd8 !important; }
+html[data-print="light"] .hcell.major{ color:#1a1d26 !important; }
+html[data-print="light"] .gcell{ border-right-color:#dde0ea !important; }
+html[data-print="light"] .gcell.maj{ border-right-color:#b0b8c8 !important; }
+html[data-print="light"] .blk-ts-top,
+html[data-print="light"] .blk-ts-bot,
+html[data-print="light"] .blk-name,
+html[data-print="light"] .blk-dur,
+html[data-print="light"] .blk-total-dur{
+  background:rgba(255,255,255,.92) !important;
+  color:#111 !important;
+  border-color:rgba(0,0,0,.18) !important;
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
@@ -23,17 +80,34 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);
 /* ══ HEADER ══ */
 header{
   height:48px;background:linear-gradient(135deg,#0f1218,#181c28);
-  border-bottom:2px solid var(--ac);padding:0 10px;
-  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  border-bottom:2px solid var(--ac);
+  display:flex;align-items:center;flex-shrink:0;
   box-shadow:0 4px 20px rgba(0,0,0,.5);z-index:300;
+  overflow:hidden; /* tools area yang scroll, bukan header keseluruhan */
 }
+.header-brand{
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+  padding:0 10px;
+  border-right:1px solid var(--bd);
+  height:100%;
+}
+.header-tools{
+  display:flex;align-items:center;gap:8px;
+  flex:1;min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:0 10px;
+  height:100%;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; /* Firefox — biar tidak nampak scrollbar tipis */
+}
+.header-tools::-webkit-scrollbar{display:none;} /* Chrome/Safari */
 .logo{width:24px;height:24px;flex-shrink:0;background:var(--ac);
   clip-path:polygon(0 20%,40% 0,100% 0,100% 80%,60% 100%,0 100%);}
 header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   letter-spacing:2px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
-.htools{margin-left:auto;display:flex;gap:4px;align-items:center;flex-wrap:nowrap;}
 #clock{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);
-  display:none;} /* hidden on mobile */
+  display:none;}
 @media(min-width:600px){#clock{display:block;margin-right:4px;}}
 #cfBadge{display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;
   letter-spacing:1px;padding:3px 8px;border-radius:20px;cursor:pointer;white-space:nowrap;
@@ -58,18 +132,22 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .btn-hide:hover,.btn-hide:active,.btn-hide.active{background:var(--dim);color:#0a0c10;}
 .btn-sm{padding:4px 8px;font-size:10px;min-height:28px;}
 .btn-icon{padding:5px 7px;font-size:14px;min-height:32px;}
-/* Tombol Home (pojok kiri atas) — gaya ghost, aksen amber saat disentuh */
-.btn-home{text-decoration:none;flex-shrink:0;gap:5px;padding:4px 8px;min-height:28px;font-size:10px;
-  color:var(--ac);border-color:rgba(240,180,41,.35);}
-.btn-home svg{width:14px;height:14px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;
-  stroke-linecap:round;stroke-linejoin:round;}
-.btn-home:hover,.btn-home:active{border-color:var(--ac);color:var(--ac);background:rgba(240,180,41,.1);}
-.btn-home span{display:none;}
-@media(min-width:600px){.btn-home span{display:inline;}}
+
+/* ── Tombol Home (pojok kiri atas header) ── */
+.btn-home{
+  display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;
+  text-transform:uppercase;text-decoration:none;white-space:nowrap;
+  color:var(--ac);background:transparent;border:1px solid var(--ac);
+  border-radius:5px;padding:4px 9px;min-height:30px;
+  transition:all .15s;
+}
+.btn-home svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+.btn-home:hover,.btn-home:active{background:var(--ac);color:#0a0c10;}
+@media(max-width:480px){.btn-home span{display:none;}.btn-home{padding:4px 7px;}}
 
 /* ══ LAYOUT ══ */
-/* Mobile: vertical stack (timeline top, sidebar bottom as drawer) */
-/* Desktop: side by side */
 .app{display:flex;height:calc(100vh - 48px);overflow:hidden;flex-direction:column;}
 @media(min-width:700px){.app{flex-direction:row;}}
 
@@ -81,9 +159,8 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   overflow-y:auto;
   position:relative;
   -webkit-overflow-scrolling:touch;
-  touch-action:pan-x pan-y;
+  touch-action:pan-x pan-y; /* pinch intercepted manually via touchmove */
 }
-/* Big scrollbar on desktop */
 .tl-scroll::-webkit-scrollbar{height:20px;}
 .tl-scroll::-webkit-scrollbar-track{background:#0d1018;border-top:1px solid var(--bd);}
 .tl-scroll::-webkit-scrollbar-thumb{
@@ -91,15 +168,28 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   border-radius:10px;border:4px solid #0d1018;min-width:60px;
 }
 .tl-scroll::-webkit-scrollbar-thumb:hover{background:linear-gradient(to bottom,#6a70a0,#3a3f60);}
-/* tl-inner tidak pakai height:100% agar konten bisa melebihi viewport dan scroll vertikal bekerja */
-.tl-inner{display:flex;flex-direction:column;min-height:100%;}
+.tl-inner{
+  display:flex;flex-direction:column;min-height:100%;padding-bottom:28px;
+  transform-origin:0 0; /* scale dari pojok kiri atas */
+  will-change:transform;
+}
+
+/* ── Zoom hint overlay ── */
+#zoomHint{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+  background:rgba(10,12,16,.92);border:1px solid var(--ac);
+  color:var(--ac);font-family:'Share Tech Mono',monospace;font-size:12px;
+  padding:7px 18px;border-radius:20px;pointer-events:none;
+  opacity:0;transition:opacity .3s;z-index:900;white-space:nowrap;
+  letter-spacing:1px;
+}
+#zoomHint.visible{opacity:1;}
 
 /* Hour header */
 .tl-head{
   display:flex;height:var(--HH);flex-shrink:0;
   background:var(--sf);border-bottom:2px solid var(--bd);
   position:sticky;top:0;z-index:40;
-  /* Tetap di atas saat scroll vertikal */
   will-change:transform;
 }
 .corner{
@@ -113,9 +203,58 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   font-family:'Share Tech Mono',monospace;color:var(--dim);
   border-right:1px solid var(--bd);user-select:none;
+  position:relative;
 }
 .hcell.major{color:var(--txt);font-size:11px;}
 .hcell.minor{color:var(--dim);border-right-color:var(--gridline);font-size:9px;}
+
+/* ── Column resize handle on hour header ── */
+.col-resize-handle{display:none;}
+/* ── Row resize handle on track label ── */
+.row-resize-handle{display:none;}
+
+/* ══ VOLUME SLIDERS (lebar kolom & tinggi baris) ══ */
+.vol-wrap{
+  display:flex;align-items:center;gap:2px;
+  background:rgba(255,255,255,.04);border:1px solid var(--bd);
+  border-radius:6px;padding:2px 5px;height:32px;flex-shrink:0;
+}
+.vol-icon{font-size:10px;color:var(--dim);flex-shrink:0;user-select:none;line-height:1;margin-right:1px;}
+.vol-val{
+  font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--ac);
+  min-width:26px;text-align:center;flex-shrink:0;user-select:none;line-height:1;
+}
+.vol-btn{
+  background:none;border:1px solid var(--bd);color:var(--dim);
+  border-radius:3px;width:18px;height:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;line-height:1;cursor:pointer;flex-shrink:0;
+  padding:0;transition:color .15s,border-color .15s;
+  touch-action:manipulation;
+}
+.vol-btn:hover,.vol-btn:active{color:var(--ac);border-color:var(--ac);}
+.vol-slider{
+  -webkit-appearance:none;appearance:none;
+  width:48px;height:4px;border-radius:2px;outline:none;cursor:pointer;
+  background:linear-gradient(to right, var(--ac) 0%, var(--ac) 50%, var(--bd) 50%, var(--bd) 100%);
+  flex-shrink:0;
+}
+.vol-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:14px;height:14px;border-radius:50%;
+  background:var(--ac);cursor:pointer;
+  box-shadow:0 0 0 2px rgba(240,180,41,.3);
+  transition:box-shadow .15s;
+}
+.vol-slider::-webkit-slider-thumb:hover,
+.vol-slider:active::-webkit-slider-thumb{
+  box-shadow:0 0 0 4px rgba(240,180,41,.35);
+}
+.vol-slider::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;border:none;
+  background:var(--ac);cursor:pointer;
+}
+@media(max-width:480px){.vol-slider{width:40px;}}
 
 /* Track rows */
 .tracks-area{
@@ -123,18 +262,19 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   position:relative;display:flex;flex-direction:column;
 }
 .track-row{
-  height:var(--ROW);min-height:var(--ROW);flex-shrink:0;
+  min-height:var(--ROW);flex-shrink:0;
   display:flex;border-bottom:1px solid var(--gridline);position:relative;overflow:visible;
 }
-.track-row.cuci .track-label{background:rgba(0,194,255,.07);color:var(--ac2);}
+.track-row.cuci .track-label{background:#071820;color:var(--ac2);}
 .track-label{
   width:var(--LW);min-width:var(--LW);flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
   font-weight:700;font-size:11px;letter-spacing:1.2px;color:var(--ac);
-  background:var(--sf2);border-right:2px solid var(--bd);
-  position:sticky;left:0;z-index:10;text-transform:uppercase;
-  /* Pastikan background solid agar teks blok tidak tembus */
-  box-shadow:2px 0 6px rgba(0,0,0,.4);
+  background:#0c0f18; /* solid — tidak tembus */
+  border-right:2px solid var(--bd);
+  position:sticky;left:0;z-index:80;text-transform:uppercase;
+  box-shadow:3px 0 10px rgba(0,0,0,.7);
+  overflow:visible;
 }
 .track-grid{position:relative;flex:1;display:flex;overflow:visible;}
 .gcell{border-right:1px solid var(--gridline);height:100%;flex-shrink:0;}
@@ -142,9 +282,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
 /* ══ BLOCKS ══ */
 .ka-block{
-  position:absolute;
-  border-radius:4px;
-  overflow:visible;
+  position:absolute;border-radius:4px;overflow:visible;
   cursor:pointer;pointer-events:all;
   border:1.5px solid rgba(255,255,255,.22);
   box-shadow:0 2px 10px rgba(0,0,0,.5);
@@ -154,80 +292,67 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .ka-block.cf{box-shadow:0 0 0 2px var(--red),0 0 10px rgba(239,68,68,.35)!important;}
 .ka-block.hidden-block{opacity:0.18;pointer-events:none;}
 
-/* ── Name label ── prioritas 1: z-index tertinggi, sibling langsung di area ── */
+/* ── Label overlays — menembus keluar blok, z-index tinggi ── */
+/* Jam masuk: kiri atas, boleh menembus ke kiri */
+/* Jam masuk: di luar kiri blok — posisi di-set via JS */
+.blk-ts-top{
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:200;
+  line-height:1.5;
+}
+/* Nama KA: tengah blok — posisi di-set via JS */
 .blk-name{
   position:absolute;
-  text-align:center;
-  font-size:11px;font-weight:700;letter-spacing:0.3px;
-  color:#fff !important;
-  text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.7);
-  pointer-events:none;
-  white-space:nowrap;
-  overflow:visible;
-  z-index:60;
-  background:rgba(0,0,0,.75);
-  border-radius:4px;
-  padding:2px 6px;
-  border:1px solid rgba(255,255,255,.25);
-  transform:translate(-50%,-50%);
+  font-weight:700;letter-spacing:0.3px;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:4px;padding:2px 6px;
+  border:1px solid rgba(255,255,255,.18);
+  z-index:201;
+  line-height:1.5;
 }
-/* Floating label ABOVE block */
-.blk-name.above{
-  background:rgba(8,10,18,.95);
-  border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);
-  z-index:60;
-  transform:translateX(-50%);
-}
-.blk-name.above::after{
-  content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-top-color:rgba(8,10,18,.95);
-}
-/* Floating label BELOW block (first row) */
-.blk-name.below{
-  background:rgba(8,10,18,.95);
-  border-color:rgba(255,255,255,.35);
-  box-shadow:0 2px 12px rgba(0,0,0,.8);
-  z-index:60;
-  transform:translateX(-50%);
-}
-.blk-name.below::before{
-  content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-  border:5px solid transparent;border-bottom-color:rgba(8,10,18,.95);
+/* Jam keluar: di luar kanan blok — posisi di-set via JS */
+.blk-ts-bot{
+  position:absolute;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 4px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:200;
+  line-height:1.5;
 }
 
-/* Duration label — prioritas 2 */
+/* Durasi: di luar bawah blok, mepet, center */
 .blk-dur{
   position:absolute;
-  text-align:center;
-  font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:rgba(255,255,255,.85);
-  pointer-events:none;white-space:nowrap;overflow:visible;
-  z-index:40;
-  background:rgba(0,0,0,.7);
-  border-radius:2px;
-  padding:0 3px;
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.82);border-radius:3px;padding:1px 5px;
+  border:1px solid rgba(255,255,255,.12);
+  z-index:50;
+  top:100%;
+  left:50%;
   transform:translateX(-50%);
+  margin-top:2px;
+  line-height:1.5;
 }
 
-/* Timestamps — prioritas 2 */
-.blk-ts-l,.blk-ts-r{
+/* Durasi total KA di stasiun — di atas blok cuci, center */
+.blk-total-dur{
   position:absolute;
-  font-family:'Share Tech Mono',monospace;font-size:9px;
-  color:#fff;
-  text-shadow:0 1px 3px rgba(0,0,0,.8);
-  white-space:nowrap;pointer-events:none;
-  z-index:40;
-  background:rgba(0,0,0,.88);
-  border-radius:3px;
-  padding:1px 4px;
-  border:1px solid rgba(255,255,255,.15);
+  font-family:'Share Tech Mono',monospace;
+  color:#fff;white-space:nowrap;pointer-events:none;
+  background:rgba(0,0,0,.88);border-radius:3px;padding:1px 6px;
+  border:1px solid rgba(255,255,255,.22);
+  z-index:52;
+  transform:translate(-50%, -100%);
+  margin-top:-3px;
+  line-height:1.5;
 }
 
-/* ══ SVG — prioritas 4: paling belakang ══ */
-#arrowSvg{position:absolute;top:0;pointer-events:none;z-index:1;overflow:visible;}
-
-/* ══ EMPTY HINT ══ */
 #emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
   text-align:center;color:var(--dim);pointer-events:none;}
 #emptyHint .big{font-size:34px;opacity:.12;margin-bottom:5px;}
@@ -265,11 +390,9 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   transition:height .25s ease, width .3s ease;
 }
 .sidebar.expanded{height:65vh;}
-/* Mobile: saat collapsed, hanya sb-head yg tampil (44px), sb-body tersembunyi */
 .sidebar.collapsed-mobile{height:44px;}
 .sidebar.collapsed-mobile .sb-body{display:none;}
-.sidebar.collapsed-mobile .sb-chevron{transform:rotate(0deg);}
-.sidebar.expanded .sb-chevron{transform:rotate(180deg);}
+.sidebar.collapsed-mobile .sb-head{display:none;}
 
 @media(min-width:700px){
   .sidebar{
@@ -278,41 +401,41 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
     position:relative;
     transition:width .3s ease;
   }
-  .sidebar.collapsed-edge{
-    width:28px;
-  }
+  .sidebar.collapsed-edge{width:28px;}
   .sidebar.collapsed-edge .sb-body,
-  .sidebar.collapsed-edge #kaCount{
-    display:none;
-  }
+  .sidebar.collapsed-edge #kaCountDesk{display:none;}
   .sidebar.collapsed-edge .sb-head{
-    flex-direction:column;
-    writing-mode:vertical-rl;
-    height:100%;
-    justify-content:flex-start;
-    padding:12px 4px;
-    gap:10px;
-    border-bottom:none;
-    cursor:pointer;
+    flex-direction:column;writing-mode:vertical-rl;height:100%;
+    justify-content:flex-start;padding:12px 4px;gap:10px;
+    border-bottom:none;cursor:pointer;
   }
   .sidebar.collapsed-edge .sb-collapse-btn{
-    writing-mode:horizontal-tb;
-    transform:scaleX(-1);
+    writing-mode:horizontal-tb;transform:scaleX(-1);
   }
 }
 
 .sb-head{
   padding:8px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;
-  display:flex;align-items:center;gap:8px;
+  display:none;align-items:center;gap:8px;
 }
+@media(min-width:700px){.sb-head{display:flex;}}
 .sb-title{font-size:10px;font-weight:700;letter-spacing:2.5px;color:var(--ac);text-transform:uppercase;white-space:nowrap;}
-#kaCount{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
+#kaCountDesk{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--dim);white-space:nowrap;}
 
-/* Mobile toggle */
-.sb-mobile-toggle{cursor:pointer;}
-.sb-chevron{margin-left:auto;color:var(--dim);transition:transform .25s;font-size:14px;}
-.sidebar.expanded .sb-chevron{transform:rotate(180deg);}
-@media(min-width:700px){.sb-chevron{display:none;}}
+/* ── Mobile toggle tab ── */
+.sb-tab{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  width:100%;padding:10px 12px;
+  background:var(--sf2);border-top:2px solid var(--ac);
+  cursor:pointer;flex-shrink:0;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
+  letter-spacing:2px;color:var(--ac);text-transform:uppercase;
+  user-select:none;
+}
+.sb-tab-chevron{font-size:12px;transition:transform .25s;}
+.sidebar.collapsed-mobile .sb-tab-chevron{transform:rotate(180deg);}
+.sidebar.expanded .sb-tab-chevron{transform:rotate(0deg);}
+@media(min-width:700px){.sb-tab{display:none;}}
 
 /* Desktop collapse button */
 .sb-collapse-btn{
@@ -322,16 +445,21 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 }
 @media(min-width:700px){.sb-collapse-btn{display:block;}}
 
-/* Body = scrollable area + add form */
-.sb-body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
-
-/* Sidebar list: scrollable both axes */
-.sb-scroll{
-  flex:1;
-  overflow-y:auto;
-  overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
+/* ── Floating expand button — shown ONLY when sidebar is collapsed on mobile ── */
+/* It appears inside .sb-tab area always visible */
+#sbExpandBtn{
+  display:none; /* shown via JS when sidebar collapsed-mobile */
+  background:transparent;border:1px solid var(--ac);
+  color:var(--ac);font-size:11px;font-weight:700;font-family:'Rajdhani',sans-serif;
+  letter-spacing:1px;text-transform:uppercase;
+  padding:3px 9px;border-radius:4px;cursor:pointer;
+  flex-shrink:0;white-space:nowrap;min-height:26px;
+  align-items:center;
 }
+
+/* Body */
+.sb-body{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+.sb-scroll{flex:1;overflow-y:auto;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .sb-scroll::-webkit-scrollbar{width:4px;height:4px;}
 .sb-scroll::-webkit-scrollbar-track{background:var(--bg);}
 .sb-scroll::-webkit-scrollbar-thumb{background:var(--bd);border-radius:3px;}
@@ -340,68 +468,43 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .ka-item{border-bottom:1px solid var(--gridline);background:var(--sf);}
 .ka-item.dragging{opacity:.35;}
 .ka-item.drag-over{border-top:2px solid var(--ac);}
-
-.ka-item-head{
-  display:flex;align-items:center;gap:6px;padding:8px 10px;
-  cursor:grab;min-height:44px; /* touch-friendly */
-}
+.ka-item-head{display:flex;align-items:center;gap:6px;padding:8px 10px;cursor:grab;min-height:44px;}
 .ka-item-head:active{cursor:grabbing;}
 .drag-handle{color:var(--dim);font-size:16px;flex-shrink:0;padding:2px;}
 .ka-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.ka-item-name{font-size:13px;font-weight:700;flex:1;min-width:0;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ka-item-name{font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ka-item-time{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);flex-shrink:0;}
-.ka-cf-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;
-  padding:1px 5px;border-radius:10px;flex-shrink:0;}
-.ka-hidden-badge{background:var(--dim);color:#fff;font-size:9px;font-weight:700;
-  padding:1px 5px;border-radius:10px;flex-shrink:0;}
-
-.ka-item-btns{
-  display:flex;gap:4px;padding:0 10px 8px 34px;
-  flex-wrap:nowrap;overflow-x:auto;
-}
+.ka-cf-badge{background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;flex-shrink:0;}
+.ka-hidden-badge{background:var(--dim);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;flex-shrink:0;}
+.ka-item-btns{display:flex;gap:4px;padding:0 10px 8px 34px;flex-wrap:nowrap;overflow-x:auto;}
 .ka-item-btns::-webkit-scrollbar{display:none;}
 
 /* ══ INLINE EDIT FORM ══ */
 .ka-edit-form{display:none;background:var(--sf2);border-top:1px solid var(--bd);padding:10px;}
 .ka-edit-form.open{display:block;}
-
 .ef-row{display:flex;gap:6px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px;}
 .fg{display:flex;flex-direction:column;gap:2px;}
-.fg lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--dim);
-  text-transform:uppercase;display:block;}
+.fg lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--dim);text-transform:uppercase;display:block;}
 .ef-input,.ef-select{
   background:var(--sf);border:1px solid var(--bd);color:var(--txt);
   font-family:'Barlow Condensed',sans-serif;font-size:14px;
-  padding:6px 8px;border-radius:5px;outline:none;transition:border-color .2s;
-  min-height:36px; /* touch friendly */
+  padding:6px 8px;border-radius:5px;outline:none;transition:border-color .2s;min-height:36px;
 }
 .ef-input:focus,.ef-select:focus{border-color:var(--ac);}
-/* Time input with auto-colon: displays as HH:MM */
 .ef-ti{
   width:72px;background:var(--sf);border:1px solid var(--bd);color:var(--txt);
   font-family:'Share Tech Mono',monospace;font-size:13px;
   padding:6px 8px;border-radius:5px;outline:none;transition:border-color .2s;
   min-height:36px;letter-spacing:1px;
-  /* inputmode=numeric set in HTML */
 }
 .ef-ti:focus{border-color:var(--ac);}
-.ef-color{width:40px;height:36px;border:1px solid var(--bd);border-radius:5px;
-  background:var(--sf);cursor:pointer;padding:2px;}
+.ef-color{width:40px;height:36px;border:1px solid var(--bd);border-radius:5px;background:var(--sf);cursor:pointer;padding:2px;}
 .ef-select option{background:#1a1f2e;}
-
-/* Segment block inside edit form */
-.ef-seg{
-  background:var(--sf);border:1px solid var(--bd);border-radius:6px;
-  padding:7px 9px;margin-bottom:6px;position:relative;
-}
+.ef-seg{background:var(--sf);border:1px solid var(--bd);border-radius:6px;padding:7px 9px;margin-bottom:6px;position:relative;}
 .ef-seg-head{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
 .ef-seg-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--ac);text-transform:uppercase;flex:1;}
-.btn-remove-seg{background:transparent;border:1px solid var(--red);color:var(--red);
-  font-size:11px;padding:1px 6px;border-radius:4px;cursor:pointer;line-height:1.4;}
+.btn-remove-seg{background:transparent;border:1px solid var(--red);color:var(--red);font-size:11px;padding:1px 6px;border-radius:4px;cursor:pointer;line-height:1.4;}
 .btn-remove-seg:hover{background:var(--red);color:#fff;}
-
-/* Add segment button */
 .btn-add-seg{
   width:100%;background:transparent;border:1px dashed var(--bd);color:var(--dim);
   font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;
@@ -409,7 +512,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
   transition:all .2s;margin-bottom:6px;min-height:34px;
 }
 .btn-add-seg:hover,.btn-add-seg:active{border-color:var(--ac);color:var(--ac);}
-
 .ef-btns{display:flex;gap:5px;}
 
 /* ══ ADD FORM ══ */
@@ -417,8 +519,7 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 .add-toggle-btn{
   width:100%;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;
   letter-spacing:2px;text-transform:uppercase;background:var(--ac);color:#0a0c10;
-  border:none;cursor:pointer;padding:8px;border-radius:5px;transition:background .2s;
-  min-height:38px;
+  border:none;cursor:pointer;padding:8px;border-radius:5px;transition:background .2s;min-height:38px;
 }
 .add-toggle-btn:hover,.add-toggle-btn:active{background:#ffca50;}
 .add-form{display:none;padding-top:10px;}
@@ -428,29 +529,69 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 <body>
 
 <header>
-  <a class="btn btn-ghost btn-home" href="https://catkaujungtimur.github.io/home/" title="Kembali ke Home" aria-label="Home">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg><span>Home</span>
-  </a>
-  <div class="logo"></div>
-  <h1>Garis Waktu Langsir</h1>
-  <div class="htools">
+  <!-- Bagian kiri: logo + judul — FROZEN, tidak ikut scroll -->
+  <div class="header-brand">
+    <a class="btn-home" href="https://catkaujungtimur.github.io/home/" title="Kembali ke Home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
+      <span>Home</span>
+    </a>
+    <div class="logo"></div>
+    <h1>Garis Waktu Langsir</h1>
+  </div>
+  <!-- Bagian kanan: semua tombol — bisa digeser kiri/kanan di Android -->
+  <div class="header-tools" id="headerTools">
     <span id="clock">—</span>
     <button class="btn btn-ghost btn-sm" id="btnUndo" onclick="undo()" title="Undo" style="opacity:0.35;">↩</button>
     <button class="btn btn-ghost btn-sm" id="btnRedo" onclick="redo()" title="Redo" style="opacity:0.35;">↪</button>
     <button class="btn btn-ghost btn-sm" onclick="resetAll()" title="Reset semua data" style="color:var(--red);border-color:var(--red);">⊘</button>
     <div id="cfBadge" onclick="toggleCF()">⚠ KONFLIK</div>
+    <button class="btn btn-ghost btn-sm" id="btnToggleKA" onclick="toggleKAList()" title="Tampilkan/sembunyikan daftar KA" style="font-size:13px;padding:5px 8px;">▼ KA</button>
     <div class="zoom-c">
       <button class="btn btn-ghost btn-icon" onclick="zoom(-1)">−</button>
       <span class="zoom-l" id="zoomLbl">60m</span>
       <button class="btn btn-ghost btn-icon" onclick="zoom(1)">+</button>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="exportPNG()">📷</button>
+    <!-- Lebar kolom slider -->
+    <div class="vol-wrap" title="Lebar kolom jam">
+      <span class="vol-icon">⟷</span>
+      <button class="vol-btn" onclick="stepSlider('sliderColW',-1)">−</button>
+      <input type="range" class="vol-slider" id="sliderColW"
+        min="22" max="160" step="1" value="44"
+        oninput="onSliderColW(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderColW',1)">+</button>
+      <span class="vol-val" id="valColW">44</span>
+    </div>
+    <!-- Tinggi baris slider -->
+    <div class="vol-wrap" title="Tinggi baris jalur">
+      <span class="vol-icon">↕</span>
+      <button class="vol-btn" onclick="stepSlider('sliderRowH',-1)">−</button>
+      <input type="range" class="vol-slider" id="sliderRowH"
+        min="28" max="160" step="1" value="64"
+        oninput="onSliderRowH(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderRowH',1)">+</button>
+      <span class="vol-val" id="valRowH">64</span>
+    </div>
+    <!-- Ukuran font slider -->
+    <div class="vol-wrap" title="Ukuran font label blok">
+      <span class="vol-icon">Ａ</span>
+      <button class="vol-btn" onclick="stepSlider('sliderFont',-1)">−</button>
+      <input type="range" class="vol-slider" id="sliderFont"
+        min="7" max="18" step="1" value="11"
+        oninput="onSliderFont(this)">
+      <button class="vol-btn" onclick="stepSlider('sliderFont',1)">+</button>
+      <span class="vol-val" id="valFont">11</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btnPngDark"  onclick="exportPNG('dark')"  title="Simpan PNG latar hitam">📷</button>
+    <button class="btn btn-ghost btn-sm" id="btnPngLight" onclick="exportPNG('light')" title="Simpan PNG latar putih (Print)" style="background:rgba(255,255,255,.15);color:#111;border-color:#ccc;">📷</button>
     <button class="btn btn-ghost btn-sm" onclick="exportJSON(this)">💾</button>
     <label class="btn btn-ghost btn-sm" id="importLbl" style="cursor:pointer;">
       📂<input type="file" accept=".json" style="display:none" onchange="importJSON(event)">
     </label>
   </div>
 </header>
+
+<!-- Zoom hint overlay -->
+<div id="zoomHint">⟵ scroll = lebar kolom ⟶</div>
 
 <div class="app">
 
@@ -472,10 +613,17 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
 
   <!-- ══ RIGHT: SIDEBAR ══ -->
   <div class="sidebar" id="sidebar">
-    <div class="sb-head sb-mobile-toggle" onclick="toggleSidebar()">
-      <div class="sb-title">Daftar KA</div>
+    <!-- Mobile tab — always visible -->
+    <div class="sb-tab" onclick="toggleSidebar()">
+      <span class="sb-tab-chevron">▲</span>
+      <span>Daftar KA</span>
       <span id="kaCount"></span>
-      <span class="sb-chevron">▲</span>
+      <!-- expand button shown here when collapsed -->
+      <button id="sbExpandBtn" onclick="expandSidebarFromTab(event)">▲ Tampilkan</button>
+    </div>
+    <div class="sb-head">
+      <div class="sb-title">Daftar KA</div>
+      <span id="kaCountDesk"></span>
       <button class="sb-collapse-btn" onclick="toggleSidebarEdge(event)" title="Sembunyikan panel">◀</button>
     </div>
     <div class="sb-body" id="sbBody">
@@ -483,7 +631,6 @@ header h1{font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;
       <div class="add-form-wrap">
         <button class="add-toggle-btn" onclick="toggleAddForm()">＋ Tambah Kereta Api</button>
         <div class="add-form" id="addForm">
-          <!-- Add form segments built by JS -->
           <div id="addSegContainer"></div>
           <button class="btn-add-seg" onclick="addFormAddSeg()">＋ Tambah Segmen Stabling</button>
           <div class="ef-btns" style="margin-top:4px;">
@@ -518,31 +665,71 @@ const CUCI   = ['CUCI 1','CUCI 2'];
 const JALUR  = ['I','II','III','IV','V','VI'];
 const TOTAL  = 1440;
 const ZOOM   = [60,30,15];
-const COL_W  = 44;
 const LW     = 72;
-const ROW_H  = 64;
-const BLK_TOP    = 3;
-const BLK_BOTTOM = 16;
+const BLK_TOP    = 4;
+const BLK_BOTTOM = 22;
 
-let kaData   = [];
-let zoomIdx  = 0;
-let conflicts= {};
-let dragId   = null;
+// ── Dynamic row height ──
+const ROW_H_MIN = 28;
+const ROW_H_MAX = 160;
+const ROW_H_DEF = 64;
+let ROW_H = ROW_H_DEF;
+
+// ── Dynamic font size for block labels ──
+const FONT_MIN = 7;
+const FONT_MAX = 18;
+const FONT_DEF = 11;
+let FONT_SZ = FONT_DEF;
+
+// ── Dynamic column width (scroll-to-zoom) ──
+// Range: 22px (very zoomed out) – 160px (very zoomed in)
+const COL_W_MIN = 22;
+const COL_W_MAX = 160;
+const COL_W_DEF = 44; // default
+let colW = COL_W_DEF; // current col width (pixels per ZOOM[zoomIdx] minutes)
+
+let kaData        = [];
+let zoomIdx       = 0;
+let conflicts     = {};
+let dragId        = null;
+let _pendingLabels= [];
+let _zoomHintTimer= null;
 
 // ══════════════════════════════════════════════════
-// LOCAL STORAGE — auto-save & auto-load
+// LOCAL STORAGE
 // ══════════════════════════════════════════════════
-const LS_KEY = 'gariswaktu_v6';
+const LS_KEY = 'gariswaktu_v7';
 
 function saveLocal(){
   try{
     localStorage.setItem(LS_KEY, JSON.stringify(kaData));
-  } catch(e){ /* quota exceeded, abaikan */ }
+    localStorage.setItem(LS_KEY+'_zoom', zoomIdx);
+    localStorage.setItem(LS_KEY+'_colW', colW);
+    localStorage.setItem(LS_KEY+'_rowH', ROW_H);
+    localStorage.setItem(LS_KEY+'_fontSz', FONT_SZ);
+    localStorage.setItem(LS_KEY+'_theme', document.documentElement.getAttribute('data-theme')||'dark');
+  } catch(e){}
 }
 
 function loadLocal(){
   try{
     const raw = localStorage.getItem(LS_KEY);
+    const zi  = localStorage.getItem(LS_KEY+'_zoom');
+    const cw  = localStorage.getItem(LS_KEY+'_colW');
+    const rh  = localStorage.getItem(LS_KEY+'_rowH');
+    if(zi !== null && !isNaN(parseInt(zi))){
+      zoomIdx = Math.max(0, Math.min(ZOOM.length-1, parseInt(zi)));
+    }
+    if(cw !== null && !isNaN(parseFloat(cw))){
+      colW = Math.max(COL_W_MIN, Math.min(COL_W_MAX, parseFloat(cw)));
+    }
+    if(rh !== null && !isNaN(parseFloat(rh))){
+      ROW_H = Math.max(ROW_H_MIN, Math.min(ROW_H_MAX, parseFloat(rh)));
+    }
+    const fs = localStorage.getItem(LS_KEY+'_fontSz');
+    if(fs !== null && !isNaN(parseFloat(fs))){
+      FONT_SZ = Math.max(FONT_MIN, Math.min(FONT_MAX, parseFloat(fs)));
+    }
     if(!raw) return false;
     const parsed = JSON.parse(raw);
     if(Array.isArray(parsed) && parsed.length){
@@ -589,6 +776,143 @@ function updateUndoRedoBtns(){
   if(r) r.style.opacity=redoStack.length?'1':'0.35';
 }
 
+// Mouse wheel on timeline area changes colW.
+// Ctrl+Wheel or plain Wheel (no Ctrl needed) both work.
+// ══════════════════════════════════════════════════
+function showZoomHint(){
+  const h=document.getElementById('zoomHint');
+  h.classList.add('visible');
+  clearTimeout(_zoomHintTimer);
+  _zoomHintTimer=setTimeout(()=>h.classList.remove('visible'),1800);
+}
+
+function updateColWidthLabel(){
+  // Show current pixel width in zoom label as "44px" suffix hint
+  // We keep existing zoom label for the minute-interval, add col info separately
+  // (no extra UI needed — the hint overlay covers it)
+}
+
+// ══════════════════════════════════════════════════
+// CANVAS ZOOM — CSS transform scale (kamera wide)
+// Ctrl+Scroll (PC) dan Pinch (Android/touch)
+// TIDAK mengubah colW / ROW_H / slider apapun
+// ══════════════════════════════════════════════════
+const CANVAS_SCALE_MIN = 0.25;
+const CANVAS_SCALE_MAX = 2.0;
+let   canvasScale      = 1.0;
+
+function applyCanvasScale(newScale, anchorX, anchorY){
+  const scroll = document.getElementById('tlScroll');
+  const inner  = document.getElementById('tlInner');
+
+  // Clamp
+  newScale = Math.max(CANVAS_SCALE_MIN, Math.min(CANVAS_SCALE_MAX, newScale));
+
+  // Anchor scroll position so the point under cursor/fingers stays put
+  const ratio = newScale / canvasScale;
+  const scrollL = scroll.scrollLeft;
+  const scrollT = scroll.scrollTop;
+
+  // anchorX/Y relative to scroll viewport
+  const ax = anchorX !== undefined ? anchorX : scroll.clientWidth  / 2;
+  const ay = anchorY !== undefined ? anchorY : scroll.clientHeight / 2;
+
+  canvasScale = newScale;
+
+  // CSS scale from top-left origin so absolute coords stay predictable
+  inner.style.transform       = `scale(${canvasScale})`;
+  inner.style.transformOrigin = '0 0';
+
+  // Re-anchor: adjust scroll so the anchor pixel is preserved
+  scroll.scrollLeft = (scrollL + ax) * ratio - ax;
+  scroll.scrollTop  = (scrollT + ay) * ratio - ay;
+
+  // Show hint with current scale %
+  showCanvasScaleHint(newScale);
+}
+
+let _canvasHintTimer = null;
+function showCanvasScaleHint(scale){
+  const h = document.getElementById('zoomHint');
+  h.textContent = `🔍 ${Math.round(scale*100)}%  (Ctrl+Scroll / Pinch)`;
+  h.classList.add('visible');
+  clearTimeout(_canvasHintTimer);
+  _canvasHintTimer = setTimeout(()=>{
+    h.classList.remove('visible');
+    h.textContent = '⟵ scroll = lebar kolom ⟶'; // restore default
+  }, 1800);
+}
+
+function initScrollZoom(){
+  const scroll = document.getElementById('tlScroll');
+
+  // ── PC: Ctrl + Mouse Wheel ──
+  scroll.addEventListener('wheel', e=>{
+    if(!e.ctrlKey && !e.metaKey) return; // plain scroll = pan
+    e.preventDefault();
+
+    const delta  = e.deltaY > 0 ? -1 : 1;
+    const factor = 1.08;
+    const newScale = delta > 0 ? canvasScale * factor : canvasScale / factor;
+
+    // Anchor = mouse position relative to scroll container
+    const rect = scroll.getBoundingClientRect();
+    applyCanvasScale(newScale, e.clientX - rect.left, e.clientY - rect.top);
+  }, {passive:false});
+
+  // ── Touch: Pinch-to-zoom with 2 fingers ──
+  let _pinchDist = null;
+
+  scroll.addEventListener('touchstart', e=>{
+    if(e.touches.length === 2){
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      _pinchDist = Math.hypot(dx, dy);
+    }
+  }, {passive:true});
+
+  scroll.addEventListener('touchmove', e=>{
+    if(e.touches.length !== 2 || _pinchDist === null) return;
+    e.preventDefault();
+
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const newDist = Math.hypot(dx, dy);
+    const ratio   = newDist / _pinchDist;
+    _pinchDist    = newDist;
+
+    // Anchor = midpoint of two fingers relative to scroll container
+    const rect = scroll.getBoundingClientRect();
+    const mx = ((e.touches[0].clientX + e.touches[1].clientX) / 2) - rect.left;
+    const my = ((e.touches[0].clientY + e.touches[1].clientY) / 2) - rect.top;
+
+    applyCanvasScale(canvasScale * ratio, mx, my);
+  }, {passive:false});
+
+  scroll.addEventListener('touchend', e=>{
+    if(e.touches.length < 2) _pinchDist = null;
+  }, {passive:true});
+
+  // ── Ctrl+Double-click (PC) reset scale ke 100% ──
+  scroll.addEventListener('dblclick', e=>{
+    if(!e.ctrlKey && !e.metaKey) return;
+    const rect = scroll.getBoundingClientRect();
+    applyCanvasScale(1.0, e.clientX - rect.left, e.clientY - rect.top);
+  });
+
+  // ── Double-tap (Touch) 1 jari → reset scale ke 100% ──
+  let _lastTap = 0;
+  scroll.addEventListener('touchend', e=>{
+    if(e.touches.length > 0) return;
+    const now = Date.now();
+    if(now - _lastTap < 300 && Math.abs(canvasScale - 1.0) > 0.01){
+      applyCanvasScale(1.0);
+    }
+    _lastTap = now;
+  }, {passive:true});
+}
+
+
 // ══════════════════════════════════════════════════
 // TIME UTILS
 // ══════════════════════════════════════════════════
@@ -612,53 +936,37 @@ function durLabel(from,to){
   if(h>0) return h+'j';
   return m+'m';
 }
-function minsToGridX(mins){ return Math.round((mins/ZOOM[zoomIdx])*COL_W); }
+function minsToGridX(mins){ return Math.round((mins/ZOOM[zoomIdx])*colW); }
 
 // ══════════════════════════════════════════════════
 // AUTO-COLON TIME INPUT
-// Formats numeric input as HH:MM in real-time.
-// User types digits only; colon inserted automatically.
 // ══════════════════════════════════════════════════
 function initTimeInput(el){
   el.setAttribute('inputmode','numeric');
   el.setAttribute('placeholder','HH:MM');
   el.setAttribute('maxlength','5');
-
-  // Select all text on focus so user can immediately overtype
   el.addEventListener('focus', ()=>{ setTimeout(()=>el.select(),0); });
-
   el.addEventListener('keydown', e=>{
-    // Allow: backspace, delete, arrows, tab
     if(['Backspace','Delete','ArrowLeft','ArrowRight','Tab'].includes(e.key)) return;
-    // Allow only digits
     if(!/^\d$/.test(e.key)){e.preventDefault();return;}
   });
-
   el.addEventListener('input', ()=>{
-    let raw = el.value.replace(/\D/g,''); // strip non-digits
+    let raw = el.value.replace(/\D/g,'');
     if(raw.length>4) raw=raw.slice(0,4);
-    if(raw.length>=3){
-      el.value = raw.slice(0,2)+':'+raw.slice(2);
-    } else {
-      el.value = raw;
-    }
+    if(raw.length>=3){ el.value = raw.slice(0,2)+':'+raw.slice(2); }
+    else { el.value = raw; }
   });
-
   el.addEventListener('blur', ()=>{
-    // Normalise: ensure HH:MM
     let v=el.value.replace(/\D/g,'');
     if(v.length===3) v='0'+v;
     if(v.length===4){
       let h=parseInt(v.slice(0,2)),m=parseInt(v.slice(2));
       h=Math.min(h,24); m=Math.min(m,59);
       el.value=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
-    } else if(v.length===0){
-      el.value='';
-    }
+    } else if(v.length===0){ el.value=''; }
   });
 }
 
-// Apply to all .ef-ti elements now and after DOM changes
 function initAllTimeInputs(root=document){
   root.querySelectorAll('.ef-ti').forEach(el=>{
     if(!el.dataset.tiInit){el.dataset.tiInit='1';initTimeInput(el);}
@@ -666,24 +974,44 @@ function initAllTimeInputs(root=document){
 }
 
 // ══════════════════════════════════════════════════
-// SIDEBAR TOGGLE
+// SIDEBAR TOGGLE — FIXED hidden behaviour
 // ══════════════════════════════════════════════════
 function toggleSidebar(){
   if(window.innerWidth >= 700) return;
   const sb=document.getElementById('sidebar');
-  // Jika sedang expanded → kembali ke normal
-  if(sb.classList.contains('expanded')){
-    sb.classList.remove('expanded');
-    return;
-  }
-  // Jika sedang collapsed-mobile → expand
-  if(sb.classList.contains('collapsed-mobile')){
+  const isCollapsed=sb.classList.contains('collapsed-mobile');
+  if(isCollapsed){
     sb.classList.remove('collapsed-mobile');
-    return;
+    sb.classList.remove('expanded');
+  } else {
+    sb.classList.add('collapsed-mobile');
   }
-  // Normal → collapsed-mobile
-  sb.classList.add('collapsed-mobile');
+  updateSbExpandBtn();
 }
+
+function expandSidebarFromTab(e){
+  e.stopPropagation(); // don't trigger toggleSidebar from parent
+  const sb=document.getElementById('sidebar');
+  sb.classList.remove('collapsed-mobile');
+  sb.classList.remove('expanded');
+  updateSbExpandBtn();
+}
+
+// Update the inline expand button visibility inside the tab bar
+function updateSbExpandBtn(){
+  const sb=document.getElementById('sidebar');
+  const btn=document.getElementById('sbExpandBtn');
+  const chevron=sb.querySelector('.sb-tab-chevron');
+  const isCollapsed=sb.classList.contains('collapsed-mobile');
+  if(btn){
+    btn.style.display = isCollapsed ? 'inline-flex' : 'none';
+  }
+  if(chevron){
+    // When collapsed, hide chevron (expand btn takes its role)
+    chevron.style.opacity = isCollapsed ? '0' : '1';
+  }
+}
+
 function toggleSidebarEdge(e){
   e.stopPropagation();
   const sb = document.getElementById('sidebar');
@@ -694,20 +1022,119 @@ function toggleSidebarEdge(e){
 }
 
 // ══════════════════════════════════════════════════
-// ZOOM
+// VOLUME SLIDER HANDLERS
 // ══════════════════════════════════════════════════
+
+// Wrapper: beri browser 1 frame untuk settle layout sebelum renderAll
+// Mencegah blok hilang saat rebuildGrid() diikuti renderAll() langsung
+function rebuildThenRender(afterCb){
+  rebuildGrid();
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      renderAll();
+      if(afterCb) afterCb();
+    });
+  });
+}
+
+// Debounce timer — reload dipicu setelah user berhenti geser 400ms
+let _reloadTimer = null;
+
+function onSliderColW(el){
+  const newW = parseFloat(el.value);
+  colW = newW;
+  updateSliderTrack(el, COL_W_MIN, COL_W_MAX);
+  // Simpan posisi scroll agar setelah reload bisa dikembalikan
+  const scroll = document.getElementById('tlScroll');
+  try{ localStorage.setItem(LS_KEY+'_scrollL', scroll.scrollLeft); } catch(e){}
+  saveLocal(); // simpan colW ke localStorage
+  scheduleReload();
+}
+
+function onSliderRowH(el){
+  ROW_H = parseFloat(el.value);
+  updateSliderTrack(el, ROW_H_MIN, ROW_H_MAX);
+  saveLocal(); // simpan ROW_H ke localStorage
+  scheduleReload();
+}
+
+function scheduleReload(){
+  clearTimeout(_reloadTimer);
+  _reloadTimer = setTimeout(()=>{ location.reload(); }, 400);
+}
+
+function updateSliderTrack(el, min, max){
+  const val = parseFloat(el.value);
+  const pct = ((val - min) / (max - min)) * 100;
+  el.style.background = `linear-gradient(to right, var(--ac) 0%, var(--ac) ${pct}%, var(--bd) ${pct}%, var(--bd) 100%)`;
+  // Update angka display
+  const valId = { sliderColW:'valColW', sliderRowH:'valRowH', sliderFont:'valFont' }[el.id];
+  if(valId){
+    const span = document.getElementById(valId);
+    if(span) span.textContent = Math.round(val);
+  }
+}
+
+function onSliderFont(el){
+  FONT_SZ = parseFloat(el.value);
+  updateSliderTrack(el, FONT_MIN, FONT_MAX);
+  renderAll();
+}
+
+// Tombol +/- presisi untuk slider
+function stepSlider(sliderId, dir){
+  const el = document.getElementById(sliderId);
+  if(!el) return;
+  el.value = Math.max(parseFloat(el.min), Math.min(parseFloat(el.max), parseFloat(el.value) + dir * parseFloat(el.step||1)));
+  el.dispatchEvent(new Event('input'));
+}
+
+function syncSliders(){
+  const sc = document.getElementById('sliderColW');
+  const sr = document.getElementById('sliderRowH');
+  const sf = document.getElementById('sliderFont');
+  if(sc){ sc.value = colW; updateSliderTrack(sc, COL_W_MIN, COL_W_MAX); }
+  if(sr){ sr.value = ROW_H; updateSliderTrack(sr, ROW_H_MIN, ROW_H_MAX); }
+  if(sf){ sf.value = FONT_SZ; updateSliderTrack(sf, FONT_MIN, FONT_MAX); }
+}
+
+
 function zoom(d){
   zoomIdx=Math.max(0,Math.min(ZOOM.length-1,zoomIdx+d));
   document.getElementById('zoomLbl').textContent=ZOOM[zoomIdx]+'m';
-  rebuildGrid(); renderAll();
+  saveLocal();
+  scheduleReload();
 }
 
 // ══════════════════════════════════════════════════
-// BUILD GRID
+// THEME
+// ══════════════════════════════════════════════════
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme==='light'?'light':'dark');
+  const sel=document.getElementById('themeSelect');
+  if(sel) sel.value=theme==='light'?'light':'dark';
+}
+
+function onThemeChange(sel){
+  const theme=sel.value;
+  try{ localStorage.setItem(LS_KEY+'_theme', theme); } catch(e){}
+  saveLocal();
+  scheduleReload();
+}
+
+function loadTheme(){
+  const t=localStorage.getItem(LS_KEY+'_theme')||'dark';
+  applyTheme(t);
+  return t;
+}
+
+// ══════════════════════════════════════════════════
+// BUILD GRID — uses dynamic colW
 // ══════════════════════════════════════════════════
 function rebuildGrid(){
   const mpc=ZOOM[zoomIdx], cols=Math.ceil(TOTAL/mpc);
-  document.getElementById('tlInner').style.minWidth=(LW+cols*COL_W)+'px';
+  // Width = LW (fixed jalur label) + cols * colW (dynamic)
+  document.getElementById('tlInner').style.minWidth=(LW+cols*colW)+'px';
   const hc=document.getElementById('hourCells');
   hc.innerHTML='';
   for(let c=0;c<cols;c++){
@@ -715,7 +1142,7 @@ function rebuildGrid(){
     const el=document.createElement('div');
     const isHour=mins%60===0;
     el.className='hcell '+(isHour?'major':'minor');
-    el.style.width=COL_W+'px';el.style.minWidth=COL_W+'px';
+    el.style.width=colW+'px';el.style.minWidth=colW+'px';
     if(mpc===60){
       el.textContent=String(Math.floor(mins/60)).padStart(2,'0');
     } else if(isHour){
@@ -723,6 +1150,11 @@ function rebuildGrid(){
     } else {
       el.textContent=':'+String(mins%60).padStart(2,'0');
     }
+    // Column resize handle (only on the last cell of each "hour group" or every cell)
+    const colHandle=document.createElement('div');
+    colHandle.className='col-resize-handle';
+    colHandle.title='Geser kanan/kiri untuk ubah lebar kolom';
+    el.appendChild(colHandle);
     hc.appendChild(el);
   }
   const area=document.getElementById('tracksArea');
@@ -731,15 +1163,22 @@ function rebuildGrid(){
     const row=document.createElement('div');
     row.className='track-row'+(CUCI.includes(tr)?' cuci':'');
     row.dataset.track=tr;
+    row.style.height=ROW_H+'px';
+    row.style.minHeight=ROW_H+'px';
     const lbl=document.createElement('div');
     lbl.className='track-label';lbl.textContent=tr;
+    // Row resize handle
+    const rowHandle=document.createElement('div');
+    rowHandle.className='row-resize-handle';
+    rowHandle.title='Geser bawah/atas untuk ubah tinggi baris';
+    lbl.appendChild(rowHandle);
     const grid=document.createElement('div');
     grid.className='track-grid';
     for(let c=0;c<cols;c++){
       const mins=c*mpc;
       const cell=document.createElement('div');
       cell.className='gcell'+(mins%60===0?' maj':'');
-      cell.style.width=COL_W+'px';cell.style.minWidth=COL_W+'px';
+      cell.style.width=colW+'px';cell.style.minWidth=colW+'px';
       grid.appendChild(cell);
     }
     row.appendChild(lbl); row.appendChild(grid);
@@ -776,44 +1215,152 @@ function detectConflicts(){
 function toggleCF(){document.getElementById('cfPanel').classList.toggle('open');}
 
 // ══════════════════════════════════════════════════
+// TOGGLE DAFTAR KA (chevron di header)
+// ══════════════════════════════════════════════════
+function toggleKAList(){
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('btnToggleKA');
+  const isHidden = sb.dataset.kaHidden === '1';
+  if(isHidden){
+    sb.dataset.kaHidden = '0';
+    sb.style.display = '';
+    btn.textContent = '▼ KA';
+    try{ localStorage.setItem(LS_KEY+'_kaHidden','0'); } catch(e){}
+  } else {
+    sb.dataset.kaHidden = '1';
+    sb.style.display = 'none';
+    btn.textContent = '▶ KA';
+    try{ localStorage.setItem(LS_KEY+'_kaHidden','1'); } catch(e){}
+  }
+}
+
+function applyKAListState(){
+  const saved = localStorage.getItem(LS_KEY+'_kaHidden');
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('btnToggleKA');
+  if(saved === '1'){
+    sb.dataset.kaHidden = '1';
+    sb.style.display = 'none';
+    btn.textContent = '▶ KA';
+  } else {
+    sb.dataset.kaHidden = '0';
+    sb.style.display = '';
+    btn.textContent = '▼ KA';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// FLOATING LABEL COLLISION RESOLUTION
+// ══════════════════════════════════════════════════
+function resolveFloatingLabels(labels, blockH){
+  const LABEL_H = 22;
+  const GAP = 4;
+  const byTrack = {};
+  labels.forEach(nm=>{
+    const ti = parseInt(nm.dataset.trackIdx);
+    if(!byTrack[ti]) byTrack[ti]=[];
+    byTrack[ti].push(nm);
+  });
+  Object.values(byTrack).forEach(group=>{
+    const items = group.map(nm=>{
+      const bCX   = parseFloat(nm.dataset.blkCX);
+      const bTop  = parseFloat(nm.dataset.blkTop);
+      const bBot  = parseFloat(nm.dataset.blkBot);
+      const bW    = parseFloat(nm.dataset.blkW);
+      const ti    = parseInt(nm.dataset.trackIdx);
+      const lw    = nm.getBoundingClientRect().width;
+      const fits  = lw <= bW - 8;
+      return {nm, bCX, bTop, bBot, bW, ti, lw, fits};
+    });
+    const floating = items.filter(it=>!it.fits);
+    if(!floating.length) return;
+    floating.sort((a,b)=>a.bCX - b.bCX);
+    const placed = [];
+    floating.forEach(it=>{
+      const isBelow = it.ti === 0;
+      const halfW = it.lw / 2 + 4;
+      const x1 = it.bCX - halfW;
+      const x2 = it.bCX + halfW;
+      let level = 0, collision = true;
+      while(collision){
+        collision = false;
+        for(const p of placed){
+          if(p.isBelow !== isBelow) continue;
+          if(p.level !== level) continue;
+          if(x1 < p.x2 + GAP && x2 > p.x1 - GAP){ collision=true;level++;break; }
+        }
+      }
+      placed.push({x1, x2, level, isBelow});
+      const nm = it.nm;
+      const durEl = nm._durEl;
+      if(isBelow){
+        nm.classList.add('below');
+        const topY = it.bBot + 8 + level*(LABEL_H + GAP);
+        nm.style.top  = topY+'px';
+        nm.style.left = it.bCX+'px';
+        if(durEl) durEl.style.top = (topY + LABEL_H + 2)+'px';
+      } else {
+        nm.classList.add('above');
+        const topY = it.bTop - 8 - level*(LABEL_H + GAP);
+        nm.style.top  = topY+'px';
+        nm.style.left = it.bCX+'px';
+      }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════
 // RENDER ALL
 // ══════════════════════════════════════════════════
 function renderAll(){
   saveLocal();
   detectConflicts();
-  document.querySelectorAll('.ka-block').forEach(e=>e.remove());
+  document.querySelectorAll('.ka-block,.blk-name,.blk-ts-top,.blk-ts-bot,.blk-dur,.blk-total-dur').forEach(e=>e.remove());
 
   const area=document.getElementById('tracksArea');
   const mpc=ZOOM[zoomIdx], cols=TOTAL/mpc;
-  const svgW=cols*COL_W, svgH=TRACKS.length*ROW_H;
+  const svgW=cols*colW, svgH=TRACKS.length*ROW_H;
   const blockH=ROW_H-BLK_TOP-BLK_BOTTOM;
 
   const svg=document.getElementById('arrowSvg');
   svg.setAttribute('width',svgW); svg.setAttribute('height',svgH);
   svg.style.cssText=`position:absolute;top:0;left:${LW}px;width:${svgW}px;height:${svgH}px;z-index:2;pointer-events:none;overflow:visible;`;
   if(svg.parentElement!==area) area.appendChild(svg);
-  svg.innerHTML=``; // lines only, no arrowhead
+  svg.innerHTML='';
 
   document.getElementById('emptyHint').style.display=kaData.length?'none':'block';
-
-  // Header height for floating label offset check
-  const headerH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--HH'))||40;
 
   kaData.forEach(ka=>{
     if(!ka.segments||!ka.segments.length) return;
     const isCF=!!conflicts[ka.id];
     const isHidden=!!ka.hidden;
-
     const rendered=[];
+
+    const warnaA = ka.warnaA||ka.warna||'#4ade80';
+    const warnaB = ka.warnaB||warnaA;
+    const total  = ka.segments.length;
+
+    // Tentukan warna per segmen:
+    // - Sebelum segmen cuci pertama (atau satu-satunya): warnaA
+    // - Sesudah segmen cuci terakhir: warnaB
+    // - Segmen cuci sendiri: gradient A→B (kiri warnaA, kanan warnaB)
+    function segWarna(si){
+      if(warnaA===warnaB) return {single:warnaA, isCuci:false};
+      const seg=ka.segments[si];
+      const isCuciSeg=CUCI.includes(seg.track);
+      if(isCuciSeg) return {single:null, isCuci:true, warnaA, warnaB};
+      // Cek apakah ada segmen cuci sebelum si ini
+      let hasCuciBefore=false;
+      for(let j=0;j<si;j++) if(CUCI.includes(ka.segments[j].track)){ hasCuciBefore=true; break; }
+      return hasCuciBefore ? {single:warnaB, isCuci:false} : {single:warnaA, isCuci:false};
+    }
 
     ka.segments.forEach((seg,si)=>{
       if(seg.dari>=seg.sampai){rendered.push(null);return;}
       const ti=TRACKS.indexOf(seg.track);
       if(ti<0){rendered.push(null);return;}
 
-      // Cek apakah segmen melewati tengah malam (sampai > 1440)
       const crossMidnight = seg.sampai > TOTAL;
-      // Untuk keperluan arrow, gunakan koordinat bagian pertama saja
       const gridX=minsToGridX(seg.dari);
       const sampaiClamped=Math.min(seg.sampai, TOTAL);
       const w=minsToGridX(sampaiClamped)-gridX;
@@ -822,137 +1369,161 @@ function renderAll(){
 
       if(isHidden) return;
 
-      // ── Blok bagian pertama (hari ini) ──
-      const renderBlock=(fromM, toM)=>{
+      const sampaiDisplay = crossMidnight ? fmt(seg.sampai - TOTAL)+'+1' : fmt(seg.sampai);
+      const wInfo = segWarna(si);
+
+      // Untuk segmen cuci cross-midnight: hitung posisi tengah durasi cuci
+      // agar split warna berada tepat di tengah waktu cuci, bukan tengah blok visual
+      const cuciDurMins = seg.sampai - seg.dari; // total menit cuci (misal 240 menit)
+      const cuciMidMins = seg.dari + cuciDurMins / 2; // menit absolut titik tengah
+
+      const renderBlock=(fromM, toM, showLabels, isContd)=>{
         const gx=minsToGridX(fromM);
         const bw=minsToGridX(toM)-gx;
         if(bw<=0) return;
+
         const block=document.createElement('div');
         block.className='ka-block'+(isCF?' cf':'')+(isHidden?' hidden-block':'');
+
+        // Background: gradient untuk cuci, solid untuk yang lain
+        let bgStyle;
+        if(wInfo.isCuci && warnaA !== warnaB){
+          // cuciMidMins = menit absolut titik tengah durasi cuci
+          // Konversikan ke pixel X dalam grid
+          // Untuk blok cross-midnight: fromM=0..cuciEnd atau fromM=cuciStart..TOTAL
+          // Kita perlu tau apakah titik tengah ada di blok ini atau tidak
+          const midPixel = minsToGridX(
+            cuciMidMins >= TOTAL ? cuciMidMins - TOTAL : cuciMidMins
+          );
+
+          if(midPixel <= gx){
+            // Tengah cuci ada sebelum blok ini → seluruh blok = warnaB
+            bgStyle=`background:${warnaB}`;
+          } else if(midPixel >= gx + bw){
+            // Tengah cuci ada setelah blok ini → seluruh blok = warnaA
+            bgStyle=`background:${warnaA}`;
+          } else {
+            // Tengah cuci ada di dalam blok ini → split di sini
+            const splitPct = ((midPixel - gx) / bw * 100).toFixed(2);
+            bgStyle=`background:linear-gradient(to right, ${warnaA} 0%, ${warnaA} ${splitPct}%, ${warnaB} ${splitPct}%, ${warnaB} 100%)`;
+          }
+        } else {
+          bgStyle=`background:${wInfo.single||warnaA}`;
+        }
+
         block.style.cssText=[
-          `left:${LW+gx}px`,`top:${rowY+BLK_TOP}px`,
-          `width:${bw}px`,`height:${blockH}px`,
-          `background:${ka.warna}`,`color:#fff`,
+          `left:${LW+gx}px`,
+          `top:${rowY+BLK_TOP}px`,
+          `width:${bw}px`,
+          `height:${blockH}px`,
+          bgStyle,
         ].join(';');
         block.addEventListener('mousemove',e=>showTT(e,ka,isCF));
         block.addEventListener('mouseleave',hideTT);
+
+        const tsz = FONT_SZ;
+        const nmsz = Math.round(tsz * 1.2);
+
+        // Posisi absolut label relatif terhadap area (bukan blok)
+        const absLeft  = LW + gx;        // X kiri blok dalam area
+        const absTop   = rowY + BLK_TOP; // Y atas blok dalam area
+        const absBot   = absTop + blockH; // Y bawah blok
+        const absMidY  = absTop + blockH / 2;
+        const absMidX  = absLeft + bw / 2;
+
+        if(showLabels){
+          // Jam masuk — di luar kiri blok, sejajar atas
+          const tsTop=document.createElement('div');
+          tsTop.className='blk-ts-top';
+          tsTop.textContent=fmt(fromM);
+          tsTop.style.fontSize = tsz+'px';
+          tsTop.style.top  = absTop+'px';
+          tsTop.style.left = absLeft+'px';
+          tsTop.style.transform = 'translateX(-100%) translateX(-2px)';
+          area.appendChild(tsTop);
+
+          // Nama KA — tengah blok
+          const nm=document.createElement('div');
+          nm.className='blk-name';
+          nm.textContent=ka.nama;
+          nm.style.fontSize = nmsz+'px';
+          nm.style.top  = absMidY+'px';
+          nm.style.left = absMidX+'px';
+          nm.style.transform = 'translate(-50%,-50%)';
+          area.appendChild(nm);
+
+          // Jam keluar — di luar kanan blok, sejajar bawah
+          const tsBot=document.createElement('div');
+          tsBot.className='blk-ts-bot';
+          tsBot.textContent=crossMidnight&&!isContd ? sampaiDisplay : fmt(toM);
+          tsBot.style.fontSize = tsz+'px';
+          tsBot.style.top  = (absBot - tsz*1.5 - 2)+'px';
+          tsBot.style.left = (absLeft + bw + 2)+'px';
+          area.appendChild(tsBot);
+
+          // Durasi — di luar bawah blok, di tengah
+          if(!isContd){
+            const dur=document.createElement('div');
+            dur.className='blk-dur';
+            dur.textContent=durLabel(seg.dari, seg.sampai);
+            dur.style.fontSize = tsz+'px';
+            dur.style.top  = (absBot + 2)+'px';
+            dur.style.left = absMidX+'px';
+            dur.style.transform = 'translateX(-50%)';
+            area.appendChild(dur);
+          }
+        } else {
+          // Blok lanjutan (cross-midnight) — nama saja di tengah
+          const nm=document.createElement('div');
+          nm.className='blk-name';
+          nm.textContent=ka.nama;
+          nm.style.fontSize = nmsz+'px';
+          nm.style.top  = absMidY+'px';
+          nm.style.left = absMidX+'px';
+          nm.style.transform = 'translate(-50%,-50%)';
+          area.appendChild(nm);
+        }
+
         area.appendChild(block);
         return {gx,bw};
       };
 
-      const part1=renderBlock(seg.dari, sampaiClamped);
-
-      // Jika melewati tengah malam, render blok bagian kedua (esok hari mulai dari 0)
-      if(crossMidnight){
-        renderBlock(0, seg.sampai - TOTAL);
-      }
-
+      const part1=renderBlock(seg.dari, sampaiClamped, true, false);
+      if(crossMidnight) renderBlock(0, seg.sampai - TOTAL, true, true);
       if(!part1) return;
-      const {gx, bw} = part1;
 
+      const {gx, bw} = part1;
       const blkCX = LW + gx + bw/2;
       const blkTop = rowY + BLK_TOP;
       const blkBot = rowY + BLK_TOP + blockH;
-      const blkCY  = rowY + BLK_TOP + blockH/2;
-
-      // Name label
-      const nm=document.createElement('span');
-      nm.className='blk-name';
-      nm.textContent=ka.nama;
-      nm.style.left = blkCX+'px';
-      nm.style.top  = blkCY+'px';
-      area.appendChild(nm);
-
-      // Duration — tampilkan durasi total (termasuk bagian esok hari)
-      const dur=document.createElement('span');
-      dur.className='blk-dur';
-      dur.textContent=durLabel(seg.dari, seg.sampai);
-      dur.style.left = blkCX+'px';
-      dur.style.top  = (blkBot+2)+'px';
-      area.appendChild(dur);
-
-      // Timestamp MASUK
-      const tsL=document.createElement('span');
-      tsL.className='blk-ts-l';
-      tsL.textContent=fmt(seg.dari);
-      tsL.style.top  = blkTop+'px';
-      tsL.style.left = (LW+gx)+'px';
-      tsL.style.transform = 'translateX(-100%) translateX(-3px)';
-      area.appendChild(tsL);
-
-      // Timestamp KELUAR — tampilkan jam asli (misal 25:10 → ditampilkan 01:10+1)
-      const tsR=document.createElement('span');
-      tsR.className='blk-ts-r';
-      // Jika melewati tengah malam, tampilkan jam esok dengan tanda +1
-      const sampaiDisplay = crossMidnight
-        ? fmt(seg.sampai - TOTAL)+'+1'
-        : fmt(seg.sampai);
-      tsR.textContent=sampaiDisplay;
-      tsR.style.bottom = 'auto';
-      tsR.style.top    = (blkBot - 20)+'px';
-      // Timestamp keluar: jika cross midnight, tempel di ujung kanan bagian kedua
-      const tsRX = crossMidnight
-        ? LW + minsToGridX(seg.sampai - TOTAL) + 3
-        : LW + gx + bw + 3;
-      tsR.style.left = tsRX+'px';
-      area.appendChild(tsR);
-
-      // Float name label jika tidak muat
-      ;(function(label,durEl,blockWidth,trackIdx,bCX,bTop,bBot){
-        requestAnimationFrame(()=>{
-          const lw = label.getBoundingClientRect().width;
-          const fits = lw <= blockWidth - 8;
-          if(!fits){
-            if(trackIdx === 0){
-              label.classList.add('below');
-              label.style.top  = (bBot + 8)+'px';
-              label.style.left = bCX+'px';
-              durEl.style.top  = (bBot + 30)+'px';
-            } else {
-              label.classList.add('above');
-              label.style.top  = (bTop - 8)+'px';
-              label.style.left = bCX+'px';
-            }
-          }
-        });
-      })(nm, dur, bw, ti, blkCX, blkTop, blkBot);
     });
 
-    // Arrows — connect consecutive rendered segments
+    // Arrows — warna berbeda sebelum/sesudah cuci
     for(let si=0;si<rendered.length-1;si++){
       const cur=rendered[si], nx=rendered[si+1];
       if(!cur||!nx) continue;
-
       const curSeg = ka.segments[si];
       const nxSeg  = ka.segments[si+1];
       if(!curSeg||!nxSeg) continue;
-
-      // cur berakhir di esok hari jika sampai > 1440
-      // Dalam konteks itu, ujung "esok" cur = cur.sampai - 1440
       const curEndEsok = curSeg.sampai > TOTAL ? curSeg.sampai - TOTAL : null;
-
-      // Apakah hubungan ini valid?
-      // 1. Normal: nx mulai setelah cur selesai, di hari yang sama
       const isNormalValid = curSeg.sampai <= TOTAL && nxSeg.dari >= curSeg.sampai;
-      // 2. Cross-midnight: cur berakhir esok hari, dan nx mulai di esok hari setelah cur berakhir
       const isCrossValid  = curEndEsok !== null && nxSeg.dari >= curEndEsok;
-
       if(!isNormalValid && !isCrossValid) continue;
+
+      // Garis setelah blok cuci (atau setelah segmen yang sudah lewat cuci) → warnaB
+      // Garis sebelum cuci → warnaA
+      let hasCuciAtOrBefore = false;
+      for(let j=0;j<=si;j++) if(CUCI.includes(ka.segments[j].track)){ hasCuciAtOrBefore=true; break; }
+      const connColor = hasCuciAtOrBefore ? (warnaB) : (warnaA);
 
       const blockH2 = ROW_H - BLK_TOP - BLK_BOTTOM;
       const curTop    = cur.rowY + BLK_TOP;
       const curBottom = cur.rowY + BLK_TOP + blockH2;
       const nxTop     = nx.rowY  + BLK_TOP;
       const nxBottom  = nx.rowY  + BLK_TOP + blockH2;
-
       let x1, y1, x2, y2;
-
-      // x1: ujung kanan blok cur
-      // Jika cross-midnight, ujungnya adalah posisi (curEndEsok) di grid (bagian esok hari)
       x1 = isCrossValid ? minsToGridX(curEndEsok) : cur.gridX + cur.w;
-      // x2: awal blok nx (selalu posisi nx.dari di grid, karena nx ada di hari ini / esok hari normal)
       x2 = nx.gridX;
-
       if(cur.ti === nx.ti){
         y1 = (curTop+curBottom)/2; y2 = (nxTop+nxBottom)/2;
       } else if(nx.ti > cur.ti){
@@ -960,35 +1531,63 @@ function renderAll(){
       } else {
         y1 = curTop;    y2 = nxBottom;
       }
-
-      // Jika x2 masih di kiri x1 (tidak seharusnya terjadi setelah pengecekan di atas), skip
       if(x2 < x1 - 2) continue;
-
       const path=document.createElementNS('http://www.w3.org/2000/svg','path');
       let d;
       if(cur.ti === nx.ti){
         d=`M${x1},${y1} L${x2},${y2}`;
       } else {
         const dx = Math.abs(x2-x1);
-        const cx1b = x1 + dx*0.5;
-        const cx2b = x2 - dx*0.5;
-        d=`M${x1},${y1} C${cx1b},${y1} ${cx2b},${y2} ${x2},${y2}`;
+        d=`M${x1},${y1} C${x1+dx*.5},${y1} ${x2-dx*.5},${y2} ${x2},${y2}`;
       }
       path.setAttribute('d',d);
-      path.setAttribute('stroke',ka.warna);
+      path.setAttribute('stroke', connColor);
       path.setAttribute('stroke-width','2');
       path.setAttribute('fill','none');
       path.setAttribute('opacity', isHidden?'0.12':'0.75');
       svg.appendChild(path);
     }
+
+    // ── Durasi total KA di stasiun (masuk → berangkat) di atas blok cuci ──
+    if(!isHidden && ka.segments.length >= 2){
+      const cuciIdx = ka.segments.findIndex(s=>CUCI.includes(s.track));
+      if(cuciIdx >= 0){
+        const segMasuk     = ka.segments[0];
+        const segBerangkat = ka.segments[ka.segments.length-1];
+
+        // Normalisasi: semua menit relatif terhadap segMasuk.dari
+        // segBerangkat.sampai bisa sudah tersimpan > 1440 jika cross-midnight
+        // Pastikan selalu menghitung durasi maju (tidak negatif)
+        let masukDari   = segMasuk.dari;
+        let berangkatSampai = segBerangkat.sampai;
+        // Jika berangkat.sampai lebih kecil dari masuk.dari (belum di-normalize),
+        // tambah 1440 agar durasi tetap positif
+        if(berangkatSampai <= masukDari) berangkatSampai += TOTAL;
+        const durTotalMins = berangkatSampai - masukDari;
+
+        if(durTotalMins > 0 && durTotalMins <= TOTAL * 2){
+          const cuciSeg  = ka.segments[cuciIdx];
+          const cuciTi   = TRACKS.indexOf(cuciSeg.track);
+
+          // Posisi label: tengah blok cuci bagian pertama (atau satu-satunya)
+          const cuciGX   = minsToGridX(cuciSeg.dari);
+          const cuciGW   = minsToGridX(Math.min(cuciSeg.sampai, TOTAL)) - cuciGX;
+          const cuciCX   = LW + cuciGX + cuciGW / 2;
+          const cuciRowY = cuciTi * ROW_H;
+
+          const lbl = document.createElement('div');
+          lbl.className = 'blk-total-dur';
+          lbl.textContent = '⏱ ' + durLabel(masukDari, berangkatSampai);
+          lbl.style.left = cuciCX + 'px';
+          lbl.style.top  = (cuciRowY + BLK_TOP - 2) + 'px';
+          lbl.style.fontSize = FONT_SZ + 'px';
+          area.appendChild(lbl);
+        }
+      }
+    }
   });
 
   renderSidebar();
-}
-
-function contrast(h){
-  const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);
-  return(0.299*r+0.587*g+0.114*b)>145?'#0a0c10':'#fff';
 }
 
 // ══════════════════════════════════════════════════
@@ -1015,7 +1614,13 @@ function renderSidebar(){
   list.querySelectorAll('.ka-edit-form.open').forEach(f=>openEdits.add(+f.dataset.id));
 
   list.innerHTML='';
-  document.getElementById('kaCount').textContent=kaData.length+' KA';
+  const countTxt = kaData.length+' KA';
+  document.getElementById('kaCount').textContent = countTxt;
+  const kcd = document.getElementById('kaCountDesk');
+  if(kcd) kcd.textContent = countTxt;
+
+  // Sync expand button state
+  updateSbExpandBtn();
 
   kaData.forEach((ka,idx)=>{
     const isCF=!!conflicts[ka.id];
@@ -1024,19 +1629,17 @@ function renderSidebar(){
     item.dataset.id=ka.id;
     item.draggable=true;
 
-    // Head
     const head=document.createElement('div');
     head.className='ka-item-head';
     head.innerHTML=`
       <span class="drag-handle" title="Geser">⠿</span>
-      <span class="ka-dot" style="background:${ka.warna}"></span>
+      <span class="ka-dot" style="background:${ka.warnaA||ka.warna}"></span>
       <span class="ka-item-name">${ka.nama}</span>
       <span class="ka-item-time">${ka.segments&&ka.segments[0]?fmt(ka.segments[0].dari):''}</span>
       ${isCF?'<span class="ka-cf-badge">CF</span>':''}
       ${ka.hidden?'<span class="ka-hidden-badge">HIDDEN</span>':''}
     `;
 
-    // Buttons
     const btns=document.createElement('div');
     btns.className='ka-item-btns';
 
@@ -1050,6 +1653,12 @@ function renderSidebar(){
     hideBtn.onclick=()=>{
       ka.hidden=!ka.hidden;
       renderAll();
+      // After toggling hidden, make sure sidebar stays open
+      const sb=document.getElementById('sidebar');
+      if(sb.classList.contains('collapsed-mobile')){
+        sb.classList.remove('collapsed-mobile');
+        updateSbExpandBtn();
+      }
     };
 
     const delBtn=document.createElement('button');
@@ -1061,7 +1670,6 @@ function renderSidebar(){
     btns.appendChild(hideBtn);
     btns.appendChild(delBtn);
 
-    // Inline edit form
     const form=document.createElement('div');
     form.className='ka-edit-form'+(openEdits.has(ka.id)?' open':'');
     form.dataset.id=ka.id;
@@ -1078,17 +1686,13 @@ function renderSidebar(){
     item.appendChild(btns);
     item.appendChild(form);
 
-    // Wire edit form buttons
     form.querySelector('.ef-save-btn').onclick=()=>saveEdit(ka.id,form);
     form.querySelector('.ef-cancel-btn').onclick=()=>{
       form.classList.remove('open');
       editBtn.classList.remove('active');
     };
-    form.querySelector('.ef-add-seg-btn').onclick=()=>{
-      addSegToForm(form, ka.id);
-    };
+    form.querySelector('.ef-add-seg-btn').onclick=()=>{ addSegToForm(form, ka.id); };
 
-    // Drag & drop
     item.addEventListener('dragstart',e=>{
       dragId=ka.id;
       setTimeout(()=>item.classList.add('dragging'),0);
@@ -1123,21 +1727,10 @@ function renderSidebar(){
 // ══════════════════════════════════════════════════
 // BUILD EDIT FORM HTML
 // ══════════════════════════════════════════════════
-function jalurOpts(sel){
-  return JALUR.map(j=>`<option${j===sel?' selected':''}>${j}</option>`).join('');
-}
-function cuciOpts(sel){
-  return CUCI.map(c=>`<option${c===sel?' selected':''}>${c}</option>`).join('');
-}
-function trackOpts(sel){
-  return TRACKS.map(t=>`<option${t===sel?' selected':''}>${t}</option>`).join('');
-}
+function jalurOpts(sel){ return JALUR.map(j=>`<option${j===sel?' selected':''}>${j}</option>`).join(''); }
+function cuciOpts(sel){ return CUCI.map(c=>`<option${c===sel?' selected':''}>${c}</option>`).join(''); }
+function trackOpts(sel){ return TRACKS.map(t=>`<option${t===sel?' selected':''}>${t}</option>`).join(''); }
 
-function segTypeLabel(s,idx,total){
-  if(idx===0) return '① Masuk Jalur';
-  if(idx===total-1) return (total<=2?'②':'⑤'.charAt(0)+String.fromCharCode(9311+idx))+' Kembali ke Jalur';
-  return ['②','③','④','⑤','⑥'][idx]||`${idx+1}.`+' Stabling';
-}
 function segLabel(idx,total){
   const nums=['①','②','③','④','⑤','⑥','⑦','⑧'];
   if(idx===0) return nums[0]+' Masuk Jalur';
@@ -1145,14 +1738,21 @@ function segLabel(idx,total){
   return nums[idx]+' Stabling / Pindah Jalur';
 }
 
-function buildSegHTML(seg, idx, total, canRemove){
+function buildSegHTML(seg, idx, total, canRemove, warnaA, warnaB){
   const isFirst=idx===0, isLast=idx===total-1;
-  // For first and last: separate jalur select; for middle (stabling): any track
   const trackSelect = (isFirst||isLast)
     ? `<select class="ef-select seg-track" style="width:56px;">${jalurOpts(seg.track)}</select>`
     : `<select class="ef-select seg-track" style="width:72px;">${trackOpts(seg.track)}</select>`;
   const fromLabel = isFirst ? 'Masuk' : 'Dari';
   const toLabel   = isLast  ? 'Berangkat' : 'Sampai';
+
+  // Color picker hanya di segmen pertama dan terakhir
+  const colorPicker = isFirst
+    ? `<div class="fg"><lbl>Warna Masuk</lbl><input class="ef-color ef-warna-a" type="color" value="${warnaA||'#4ade80'}" oninput="syncWarnaB(this)"/></div>`
+    : isLast
+    ? `<div class="fg"><lbl>Warna Kembali</lbl><input class="ef-color ef-warna-b" type="color" value="${warnaB||warnaA||'#4ade80'}"/></div>`
+    : '';
+
   return `<div class="ef-seg" data-seg-idx="${idx}">
     <div class="ef-seg-head">
       <span class="ef-seg-lbl">${segLabel(idx,total)}</span>
@@ -1162,18 +1762,20 @@ function buildSegHTML(seg, idx, total, canRemove){
       <div class="fg"><lbl>Jalur/Cuci</lbl>${trackSelect}</div>
       <div class="fg"><lbl>${fromLabel}</lbl><input class="ef-ti seg-dari" type="text" value="${fmt(seg.dari)}" inputmode="numeric" maxlength="5"></div>
       <div class="fg"><lbl>${toLabel}</lbl><input class="ef-ti seg-sampai" type="text" value="${fmt(seg.sampai)}" inputmode="numeric" maxlength="5"></div>
+      ${colorPicker}
     </div>
   </div>`;
 }
 
 function buildEditFormHTML(ka){
   const segs=ka.segments||defaultSegments();
-  const segsHTML=segs.map((s,i)=>buildSegHTML(s,i,segs.length,i>0&&i<segs.length-1)).join('');
+  const warnaA=ka.warnaA||ka.warna||'#4ade80';
+  const warnaB=ka.warnaB||warnaA;
+  const segsHTML=segs.map((s,i)=>buildSegHTML(s,i,segs.length,i>0&&i<segs.length-1,warnaA,warnaB)).join('');
   return `
   <div class="ef-row" style="margin-bottom:6px;">
     <div class="fg" style="flex:1;min-width:90px;"><lbl>Nama KA</lbl>
       <input class="ef-input ef-nama" type="text" value="${ka.nama}" style="width:100%;"/></div>
-    <div class="fg"><lbl>Warna</lbl><input class="ef-color ef-warna" type="color" value="${ka.warna}"/></div>
   </div>
   <div class="ef-segs-container">${segsHTML}</div>
   <button type="button" class="btn-add-seg ef-add-seg-btn">＋ Tambah Segmen Stabling</button>
@@ -1183,58 +1785,66 @@ function buildEditFormHTML(ka){
   </div>`;
 }
 
-// Add a stabling segment to an existing edit form (before last segment)
 function addSegToForm(form, kaId){
   const container=form.querySelector('.ef-segs-container');
   const segEls=Array.from(container.querySelectorAll('.ef-seg'));
-  const total=segEls.length+1; // after adding
-  const newIdx=segEls.length-1; // insert before last
-
+  const total=segEls.length+1;
+  const newIdx=segEls.length-1;
   const newSeg={track:'II',dari:0,sampai:0};
-  const newHtml=buildSegHTML(newSeg,newIdx,total,true);
-
-  // Insert before last seg element
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
+  const newHtml=buildSegHTML(newSeg,newIdx,total,true,warnaA,warnaB);
   const lastEl=segEls[segEls.length-1];
   lastEl.insertAdjacentHTML('beforebegin',newHtml);
-
-  // Re-label all segments
-  relabelFormSegs(container);
+  relabelFormSegs(container, warnaA, warnaB);
   initAllTimeInputs(form);
 }
 
 function removeSegFromForm(btn){
   const seg=btn.closest('.ef-seg');
   const container=seg.closest('.ef-segs-container');
+  const form=container.closest('form')||container.closest('.ef-form-wrap')||container.parentElement;
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
   seg.remove();
-  relabelFormSegs(container);
+  relabelFormSegs(container, warnaA, warnaB);
 }
 
-function relabelFormSegs(container){
+function relabelFormSegs(container, warnaA, warnaB){
   const segs=Array.from(container.querySelectorAll('.ef-seg'));
   const total=segs.length;
+  // Read current warna from form if not passed
+  if(!warnaA) warnaA=container.querySelector('.ef-warna-a')?.value||'#4ade80';
+  if(!warnaB) warnaB=container.querySelector('.ef-warna-b')?.value||warnaA;
+
   segs.forEach((el,i)=>{
     el.dataset.segIdx=i;
     el.querySelector('.ef-seg-lbl').textContent=segLabel(i,total);
-    // Show/hide remove button: only middle segments (not first, not last)
     let rmBtn=el.querySelector('.btn-remove-seg');
     const canRemove=i>0&&i<total-1;
     if(canRemove&&!rmBtn){
       el.querySelector('.ef-seg-head').insertAdjacentHTML('beforeend',
         `<button type="button" class="btn-remove-seg" onclick="removeSegFromForm(this)">✕</button>`);
-    } else if(!canRemove&&rmBtn){
-      rmBtn.remove();
-    }
-    // Update track select options: middle can pick any track
+    } else if(!canRemove&&rmBtn){ rmBtn.remove(); }
     const sel=el.querySelector('.seg-track');
     const curVal=sel.value;
     if(i>0&&i<total-1){
-      // Stabling: all tracks
-      sel.innerHTML=trackOpts(curVal);
-      sel.style.width='72px';
+      sel.innerHTML=trackOpts(curVal); sel.style.width='72px';
     } else {
-      // First/last: jalur only
-      sel.innerHTML=jalurOpts(JALUR.includes(curVal)?curVal:'I');
-      sel.style.width='56px';
+      sel.innerHTML=jalurOpts(JALUR.includes(curVal)?curVal:'I'); sel.style.width='56px';
+    }
+
+    // Refresh color picker: hanya di first (warnaA) dan last (warnaB)
+    const row=el.querySelector('.ef-row');
+    const existingColorDiv=el.querySelector('.ef-color')?.closest('.fg');
+    if(existingColorDiv) existingColorDiv.remove();
+
+    if(i===0){
+      row.insertAdjacentHTML('beforeend',
+        `<div class="fg"><lbl>Warna Masuk</lbl><input class="ef-color ef-warna-a" type="color" value="${warnaA}" oninput="syncWarnaB(this)"/></div>`);
+    } else if(i===total-1){
+      row.insertAdjacentHTML('beforeend',
+        `<div class="fg"><lbl>Warna Kembali</lbl><input class="ef-color ef-warna-b" type="color" value="${warnaB}"/></div>`);
     }
   });
 }
@@ -1247,22 +1857,39 @@ function readFormSegs(container){
     let dari=parseT(el.querySelector('.seg-dari').value);
     let sampai=parseT(el.querySelector('.seg-sampai').value);
     if(dari===null||sampai===null){alert('Format waktu harus HH:MM');return null;}
-    // Jika sampai <= dari, anggap melewati tengah malam (esok hari)
     if(sampai<=dari) sampai+=1440;
     segs.push({track,dari,sampai});
   }
   return segs;
 }
 
+// Saat warna masuk diubah, warna kembali ikut HANYA jika belum pernah diubah manual
+// Kita cek dengan data-synced attribute
+function syncWarnaB(inputA){
+  const form=inputA.closest('.ef-form-wrap')||inputA.closest('form')||inputA.parentElement;
+  const inputB=form.querySelector('.ef-warna-b');
+  if(inputB && !inputB.dataset.manualChanged){
+    inputB.value=inputA.value;
+  }
+}
+
+// Mark warnaB sebagai sudah diubah manual saat user memilih sendiri
+document.addEventListener('change', e=>{
+  if(e.target.classList.contains('ef-warna-b')){
+    e.target.dataset.manualChanged='1';
+  }
+});
+
 function saveEdit(id,form){
   const nama=form.querySelector('.ef-nama').value.trim();
   if(!nama){alert('Nama KA harus diisi!');return;}
   const segs=readFormSegs(form.querySelector('.ef-segs-container'));
   if(!segs) return;
+  const warnaA=form.querySelector('.ef-warna-a')?.value||'#4ade80';
+  const warnaB=form.querySelector('.ef-warna-b')?.value||warnaA;
   snapshot();
   const idx=kaData.findIndex(k=>k.id===id);
-  if(idx>=0) kaData[idx]={...kaData[idx],
-    nama, warna:form.querySelector('.ef-warna').value, segments:segs};
+  if(idx>=0) kaData[idx]={...kaData[idx], nama, warna:warnaA, warnaA, warnaB, segments:segs};
   renderAll();
 }
 
@@ -1277,7 +1904,7 @@ function hapus(id){
 // ADD FORM
 // ══════════════════════════════════════════════════
 let addFormOpen=false;
-let addFormSegs=[]; // [{track,dari,sampai}]
+let addFormSegs=[];
 
 function defaultSegments(){
   return [
@@ -1302,21 +1929,23 @@ function buildAddForm(){
 function renderAddSegs(){
   const c=document.getElementById('addSegContainer');
   const total=addFormSegs.length;
+  const warnaA=c.querySelector('#a_warna_a')?.value||'#4ade80';
+  const warnaB=c.querySelector('#a_warna_b')?.value||warnaA;
   c.innerHTML=`
     <div class="ef-row" style="margin-bottom:6px;">
       <div class="fg" style="flex:1;min-width:90px;"><lbl>Nama KA</lbl>
         <input class="ef-input" id="a_nama" type="text" placeholder="mis. 491/492" style="width:100%;"/></div>
-      <div class="fg"><lbl>Warna</lbl><input class="ef-color" id="a_warna" type="color" value="#4ade80"/></div>
     </div>
-    <div id="addSegsEl">${addFormSegs.map((s,i)=>buildSegHTML(s,i,total,i>0&&i<total-1)).join('')}</div>
+    <div id="addSegsEl">${addFormSegs.map((s,i)=>buildSegHTML(s,i,total,i>0&&i<total-1,warnaA,warnaB)).join('')}</div>
   `;
+  // Rename ef-warna-a/b to a_warna_a/b so doAdd can read them
+  const inpA=c.querySelector('.ef-warna-a'); if(inpA) inpA.id='a_warna_a';
+  const inpB=c.querySelector('.ef-warna-b'); if(inpB) inpB.id='a_warna_b';
   initAllTimeInputs(c);
 }
 
 function addFormAddSeg(){
-  // Read current values first
   syncAddFormSegs();
-  // Insert new stabling seg before last
   const last=addFormSegs.pop();
   addFormSegs.push({track:'II',dari:0,sampai:0});
   addFormSegs.push(last);
@@ -1337,13 +1966,14 @@ function syncAddFormSegs(){
 function doAdd(){
   const nama=document.getElementById('a_nama')?.value?.trim();
   if(!nama){alert('Nama KA harus diisi!');return;}
-  const warna=document.getElementById('a_warna')?.value||'#4ade80';
+  const warnaA=document.getElementById('a_warna_a')?.value||'#4ade80';
+  const warnaB=document.getElementById('a_warna_b')?.value||warnaA;
   const segsEl=document.getElementById('addSegsEl');
   if(!segsEl) return;
   const segs=readFormSegs(segsEl);
   if(!segs) return;
   snapshot();
-  kaData.push({id:Date.now(),nama,warna,hidden:false,segments:segs});
+  kaData.push({id:Date.now(),nama,warna:warnaA,warnaA,warnaB,hidden:false,segments:segs});
   addFormOpen=false;
   document.getElementById('addForm').classList.remove('open');
   renderAll();
@@ -1353,16 +1983,15 @@ function doAdd(){
 // SAVE / LOAD / EXPORT
 // ══════════════════════════════════════════════════
 function exportJSON(btn){
-  // Save dari/sampai as integer minutes (not strings) for reliable import
   const exportData=kaData.map(k=>({
-    id:k.id, nama:k.nama, warna:k.warna, hidden:!!k.hidden,
+    id:k.id, nama:k.nama, warna:k.warnaA||k.warna, warnaA:k.warnaA||k.warna, warnaB:k.warnaB||k.warnaA||k.warna, hidden:!!k.hidden,
     segments:(k.segments||[]).map(s=>({
       track:s.track,
       dari: typeof s.dari==='number'? s.dari : (parseT(s.dari)||0),
       sampai: typeof s.sampai==='number'? s.sampai : (parseT(s.sampai)||0),
     })),
   }));
-  const blob=new Blob([JSON.stringify({v:6,savedAt:new Date().toISOString(),kaData:exportData},null,2)],
+  const blob=new Blob([JSON.stringify({v:7,savedAt:new Date().toISOString(),kaData:exportData},null,2)],
     {type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -1374,79 +2003,60 @@ function exportJSON(btn){
 
 function importJSON(e){
   const file=e.target.files[0]; if(!file) return;
-  e.target.value=''; // allow re-selecting same file
+  e.target.value='';
   const r=new FileReader();
   r.onerror=()=>alert('Gagal membaca file.');
   r.onload=ev=>{
     let obj;
     try{ obj=JSON.parse(ev.target.result); }
     catch(err){ alert('File bukan JSON yang valid.\n'+err); return; }
-
-    // Support: plain array, {kaData:[...]}, {v:N, kaData:[...]}
-    const raw = Array.isArray(obj)       ? obj
-              : Array.isArray(obj.kaData) ? obj.kaData
-              : null;
+    const raw = Array.isArray(obj) ? obj : Array.isArray(obj.kaData) ? obj.kaData : null;
     if(!raw||!raw.length){ alert('File tidak berisi array kaData.'); return; }
-
     const toMins=v=>{
       if(v===null||v===undefined) return 0;
-      // exportJSON always saves integer minutes → treat all numbers as minutes directly
       if(typeof v==='number') return Number.isFinite(v) ? Math.round(v) : 0;
-      // String fallback: parse "HH:MM" or decimal hours
       if(typeof v==='string'){ const p=parseT(v); return p!==null ? p : 0; }
       return 0;
     };
-
     const validT=new Set(TRACKS);
-
     const parsed=raw.map((k,i)=>{
       let segs;
       if(Array.isArray(k.segments)&&k.segments.length){
         segs=k.segments.map(s=>({
-          track:  validT.has(s.track) ? s.track : 'I',
-          dari:   toMins(s.dari),
-          sampai: toMins(s.sampai),
+          track: validT.has(s.track) ? s.track : 'I',
+          dari:  toMins(s.dari),
+          sampai:toMins(s.sampai),
         }));
       } else {
-        // Legacy 3-segment flat format
         segs=[
           {track:k.seg1Jalur||'I',     dari:toMins(k.seg1Dari),   sampai:toMins(k.seg1Sampai)},
           {track:k.seg2Cuci||'CUCI 1', dari:toMins(k.seg2Dari),   sampai:toMins(k.seg2Sampai)},
           {track:k.seg3Jalur||'I',     dari:toMins(k.seg3Dari),   sampai:toMins(k.seg3Sampai)},
         ];
       }
-      // Drop invalid segments (sampai boleh > 1440 jika melewati tengah malam)
       segs=segs.filter(s=>validT.has(s.track)&&typeof s.dari==='number'&&typeof s.sampai==='number'&&s.sampai>s.dari);
       if(!segs.length) return null;
-
       return {
         id:     Number.isInteger(k.id)&&k.id>0 ? k.id : (Date.now()+i*7),
         nama:   String(k.nama||'KA'+(i+1)),
-        warna:  /^#[0-9a-fA-F]{6}$/.test(k.warna) ? k.warna : '#4ade80',
+        warna:  /^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80',
+        warnaA: /^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80',
+        warnaB: /^#[0-9a-fA-F]{6}$/.test(k.warnaB) ? k.warnaB : (/^#[0-9a-fA-F]{6}$/.test(k.warnaA||k.warna) ? (k.warnaA||k.warna) : '#4ade80'),
         hidden: !!k.hidden,
         segments: segs,
       };
     }).filter(Boolean);
-
     if(!parsed.length){ alert('Tidak ada segmen yang valid di file ini.'); return; }
-
-    // Save current state for undo THEN assign
     undoStack.push(JSON.stringify(kaData));
     if(undoStack.length>50) undoStack.shift();
     redoStack=[];
     updateUndoRedoBtns();
-
     kaData=parsed;
-    rebuildGrid();
-    renderAll();
-    // Scroll ke atas setelah import agar user melihat hasil
+    rebuildThenRender();
     const sc=document.getElementById('tlScroll');
     if(sc){sc.scrollLeft=0;sc.scrollTop=0;}
-
-    // Visual feedback on the file input label
     const lbl=document.getElementById('importLbl');
     if(lbl){
-      // Cari text node (bukan elemen <input>) untuk diubah teksnya
       const txtNode=Array.from(lbl.childNodes).find(n=>n.nodeType===Node.TEXT_NODE);
       if(txtNode){
         const orig=txtNode.textContent;
@@ -1462,17 +2072,78 @@ function importJSON(e){
   r.readAsText(file);
 }
 
-function exportPNG(){
-  const inner=document.getElementById('tlInner');
-  const scroll=document.getElementById('tlScroll');
-  const orig=scroll.style.overflow;
-  scroll.style.overflow='visible';
-  html2canvas(inner,{backgroundColor:'#0a0c10',scale:2,useCORS:true,
-    width:inner.scrollWidth,height:inner.scrollHeight})
-  .then(c=>{scroll.style.overflow=orig;
-    const a=document.createElement('a');a.href=c.toDataURL('image/png');
-    a.download='garis-waktu-'+new Date().toISOString().slice(0,10)+'.png';a.click();})
-  .catch(()=>{scroll.style.overflow=orig;alert('Export gagal.');});
+// ══════════════════════════════════════════════════
+// EXPORT PNG — uses current colW so the export
+// matches exactly what the user sees on screen.
+// ══════════════════════════════════════════════════
+// EXPORT PNG — crop presisi: dari kolom jalur kiri
+// sampai jam 24:00 + 1 kolom extra, semua jalur.
+// mode='dark' → latar hitam (simpan ke PC)
+// mode='light' → latar putih (untuk print)
+// ══════════════════════════════════════════════════
+function exportPNG(mode){
+  mode = mode || 'dark';
+  const btnId = mode==='light' ? 'btnPngLight' : 'btnPngDark';
+  const btn = document.getElementById(btnId);
+  const origText = btn ? btn.textContent : '';
+  if(btn){ btn.textContent='⏳'; btn.disabled=true; }
+
+  const inner  = document.getElementById('tlInner');
+  const scroll = document.getElementById('tlScroll');
+
+  // Reset canvas scale sementara ke 1.0
+  const origTransform = inner.style.transform;
+  inner.style.transform = 'scale(1)';
+
+  // Ukuran crop
+  const mpc      = ZOOM[zoomIdx];
+  const cols24   = Math.ceil(TOTAL / mpc);
+  const extraCol = 1;
+  const gridW    = (cols24 + extraCol) * colW;
+  const captureW = LW + gridW;
+  const headerH  = 40;
+  const captureH = headerH + TRACKS.length * ROW_H + 28;
+
+  const prevSL = scroll.scrollLeft;
+  const prevST = scroll.scrollTop;
+  scroll.scrollLeft = 0;
+  scroll.scrollTop  = 0;
+
+  const bgColor = mode === 'light' ? '#ffffff' : '#0a0c10';
+
+  // Untuk mode terang: tambahkan class sementara ke html agar warna grid berubah
+  const htmlEl = document.documentElement;
+  if(mode === 'light') htmlEl.setAttribute('data-print', 'light');
+
+  html2canvas(inner, {
+    backgroundColor: bgColor,
+    scale: 2,
+    useCORS: true,
+    x: 0, y: 0,
+    width:  captureW,
+    height: captureH,
+    scrollX: 0, scrollY: 0,
+    windowWidth:  captureW,
+    windowHeight: captureH,
+  }).then(canvas => {
+    if(mode === 'light') htmlEl.removeAttribute('data-print');
+    inner.style.transform = origTransform;
+    scroll.scrollLeft = prevSL;
+    scroll.scrollTop  = prevST;
+    if(btn){ btn.textContent=origText; btn.disabled=false; }
+    const suffix = mode === 'light' ? '-print' : '';
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'garis-waktu' + suffix + '-' + new Date().toISOString().slice(0,10) + '.png';
+    a.click();
+  }).catch(err => {
+    if(mode === 'light') htmlEl.removeAttribute('data-print');
+    inner.style.transform = origTransform;
+    scroll.scrollLeft = prevSL;
+    scroll.scrollTop  = prevST;
+    if(btn){ btn.textContent=origText; btn.disabled=false; }
+    alert('Export gagal: ' + err);
+  });
 }
 
 // ══════════════════════════════════════════════════
@@ -1486,7 +2157,7 @@ setInterval(()=>{
 },1000);
 
 // ══════════════════════════════════════════════════
-// RESIZE — debounced so import doesn't race
+// RESIZE
 // ══════════════════════════════════════════════════
 let _resizeTimer=null;
 new ResizeObserver(()=>{
@@ -1495,13 +2166,35 @@ new ResizeObserver(()=>{
 }).observe(document.getElementById('tracksArea'));
 
 // ══════════════════════════════════════════════════
-// INIT — muat dari localStorage jika ada, atau mulai kosong
+// INIT
 // ══════════════════════════════════════════════════
 kaData=[];
-loadLocal(); // pulihkan data dari sesi sebelumnya jika ada
+loadLocal();
+loadTheme();        // apply tema sebelum render agar tidak flash
+syncSliders();
+applyKAListState();
 
-rebuildGrid();
-renderAll();
+document.getElementById('zoomLbl').textContent = ZOOM[zoomIdx]+'m';
+
+rebuildThenRender();
+
+// Restore posisi scroll setelah reload (dari slider kolom/baris)
+try{
+  const savedSL = localStorage.getItem(LS_KEY+'_scrollL');
+  if(savedSL !== null){
+    const sl = parseFloat(savedSL);
+    requestAnimationFrame(()=>{
+      document.getElementById('tlScroll').scrollLeft = sl;
+      localStorage.removeItem(LS_KEY+'_scrollL');
+    });
+  }
+} catch(e){}
+
+// Wire scroll-to-zoom after DOM ready
+initScrollZoom();
+
+// Show the hint once briefly on first load so users know about Ctrl+Scroll
+setTimeout(()=>showZoomHint(), 800);
 </script>
 </body>
 </html>
